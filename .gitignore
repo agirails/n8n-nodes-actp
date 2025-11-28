@@ -7,3 +7,4 @@ dist/
 .idea/
 *.tgz
 COMPLETION_REPORT.md
+SECURITY_REVIEW_REQUEST.md
