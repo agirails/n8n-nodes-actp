@@ -42,7 +42,7 @@ n8n-nodes-actp/
 ## Features Implemented
 
 ### 1. Credentials (`ActpApi.credentials.ts`)
-- ✅ Network selection (Base Sepolia / Base Mainnet)
+- ✅ Network selection (Base Sepolia testnet - mainnet coming soon)
 - ✅ Private key storage (secure, password-protected)
 - ✅ Optional custom RPC URL
 - ✅ Credential test via RPC health check
@@ -158,7 +158,7 @@ Start → Create Transaction → Wait 5s → Get Transaction → End
 - [ ] Test Raise Dispute (verify state change)
 - [ ] Test Cancel Transaction (verify cancellation)
 - [ ] Test error handling (invalid inputs, reverted transactions)
-- [ ] Test with mainnet credentials (Base Mainnet)
+- [ ] Test with mainnet credentials (when available)
 
 See [TESTING.md](./TESTING.md) for detailed testing procedures.
 
@@ -192,7 +192,6 @@ npm publish --access public
 - Wait for review and approval
 
 ### 4. Documentation
-- Add to docs.agirails.io
 - Create tutorial videos
 - Write blog post announcement
 
@@ -262,7 +261,7 @@ npm publish --access public
 - [Quick Start](./QUICKSTART.md) - Get started in 5 minutes
 - [Testing Guide](./TESTING.md) - Comprehensive testing
 - [Changelog](./CHANGELOG.md) - Version history
-- [AGIRAILS Docs](https://docs.agirails.io) - Protocol specification
+- [AGIRAILS](https://agirails.io) - Protocol information
 - [n8n Docs](https://docs.n8n.io) - Workflow automation
 
 ---
