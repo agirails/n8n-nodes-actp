@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release Escrow operation (settle payment)
 - Raise Dispute operation (initiate dispute resolution)
 - Cancel Transaction operation (cancel before delivery)
-- Support for Base Sepolia (testnet) and Base Mainnet
+- Support for Base Sepolia testnet (mainnet coming soon)
 - Comprehensive error handling and validation
 - Human-readable state formatting
 - USDC amount conversion (human-readable ↔ wei)

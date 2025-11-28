@@ -21,7 +21,7 @@ npm install n8n-nodes-actp
 1. In n8n workflow editor, add **ACTP** node
 2. Click **Create New Credentials**
 3. Fill in:
-   - **Network**: `Base Sepolia` (for testing) or `Base Mainnet`
+   - **Network**: `Base Sepolia` (testnet only for now - mainnet coming soon)
    - **Private Key**: `0x...` (your wallet private key)
    - **RPC URL**: Leave empty (uses default) or custom RPC
 
@@ -138,7 +138,7 @@ Create Transaction ($100)
 - Read full [README.md](./README.md) for all operations
 - See [TESTING.md](./TESTING.md) for comprehensive testing guide
 - Check [CHANGELOG.md](./CHANGELOG.md) for version history
-- Visit [docs.agirails.io](https://docs.agirails.io) for protocol details
+- Visit [agirails.io](https://agirails.io) for protocol details
 
 ## Support
 

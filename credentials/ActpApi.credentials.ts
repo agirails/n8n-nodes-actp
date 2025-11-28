@@ -8,7 +8,7 @@ import {
 export class ActpApi implements ICredentialType {
 	name = 'actpApi';
 	displayName = 'ACTP API';
-	documentationUrl = 'https://docs.agirails.io/sdk';
+	documentationUrl = 'https://github.com/agirails/n8n-nodes-actp';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Network',
@@ -19,13 +19,9 @@ export class ActpApi implements ICredentialType {
 					name: 'Base Sepolia (Testnet)',
 					value: 'base-sepolia',
 				},
-				{
-					name: 'Base Mainnet',
-					value: 'base-mainnet',
-				},
 			],
 			default: 'base-sepolia',
-			description: 'Select the blockchain network to connect to',
+			description: 'Blockchain network (testnet only for now - mainnet coming soon)',
 		},
 		{
 			displayName: 'Private Key',
