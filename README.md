@@ -182,8 +182,6 @@ Alternative paths:
 ## Resources
 
 * [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
-* [AGIRAILS Documentation](https://docs.agirails.io)
-* [ACTP Yellow Paper](https://github.com/agirails/protocol)
 * [SDK Documentation](https://github.com/agirails/sdk-js)
 
 ## V1 Limitations & Security Warnings
@@ -229,5 +227,4 @@ Apache-2.0
 ## Support
 
 - Issues: [GitHub Issues](https://github.com/agirails/n8n-nodes-actp/issues)
-- Documentation: [docs.agirails.io](https://docs.agirails.io)
 - Email: developers@agirails.io
