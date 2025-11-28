@@ -39,7 +39,7 @@ npm install n8n-nodes-actp
 
 This node requires ACTP API credentials:
 
-1. **Network**: Select Base Sepolia (testnet) or Base Mainnet
+1. **Network**: Select Base Sepolia (testnet only for now - mainnet coming soon)
 2. **Private Key**: Ethereum wallet private key (0x... format) for signing transactions
 3. **RPC URL** (optional): Custom RPC endpoint URL (uses default network RPC if empty)
 
@@ -329,7 +329,7 @@ V1.1+ introduces:
 ### 1.0.0 (2025-11-28)
 - Initial release
 - Support for all core ACTP operations
-- Base Sepolia and Base Mainnet support
+- Base Sepolia testnet support (mainnet coming soon)
 
 ## License
 
