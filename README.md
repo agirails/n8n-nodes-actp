@@ -45,6 +45,117 @@ This node requires ACTP API credentials:
 
 ⚠️ **Security Warning**: Never share your private key. Use environment variables in production.
 
+### Setting Up Your Wallet
+
+If you don't have an Ethereum wallet yet:
+
+1. **Install MetaMask** browser extension: [metamask.io](https://metamask.io/download/)
+2. **Create a new wallet** and save your seed phrase securely
+3. **Add Base Sepolia network** to MetaMask:
+   - Network Name: `Base Sepolia`
+   - RPC URL: `https://sepolia.base.org`
+   - Chain ID: `84532`
+   - Currency: `ETH`
+   - Explorer: `https://sepolia.basescan.org`
+
+   Or use [Chainlist](https://chainlist.org/?search=base+sepolia&testnets=true) to add automatically.
+
+4. **Export your private key** (for n8n credentials):
+   - MetaMask → Account details → Show private key
+   - ⚠️ **Never share this key with anyone!**
+
+5. **Your wallet address** is shown at the top of MetaMask (0x...)
+   - This is your public address - safe to share
+   - Use this when someone asks for your "provider address" or "requester address"
+
+### Checking Your Balances
+
+**Via MetaMask:**
+- ETH balance shows automatically
+- For USDC: Add token → Custom → Contract: `0x444b4e1A65949AB2ac75979D5d0166Eb7A248Ccb`
+
+**Via Basescan:**
+- Go to `https://sepolia.basescan.org/address/YOUR_ADDRESS`
+- See all token balances and transaction history
+
+### Getting Testnet Funds (Base Sepolia)
+
+Before using ACTP on testnet, you need:
+
+1. **Base Sepolia ETH** (for gas fees):
+   - Get free testnet ETH from [Coinbase Faucet](https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet)
+   - Or [Alchemy Faucet](https://www.alchemy.com/faucets/base-sepolia)
+   - You need ~0.01 ETH for multiple transactions
+
+2. **Mock USDC (mUSDC)** (for payments):
+   - Contract: `0x444b4e1A65949AB2ac75979D5d0166Eb7A248Ccb`
+   - This is a test token with open minting - anyone can mint
+   - To mint mUSDC, call the `mint` function on the contract:
+     ```
+     mint(yourAddress, amount)
+     ```
+   - Amount is in 6 decimals (1 USDC = 1000000)
+   - Use [Basescan](https://sepolia.basescan.org/address/0x444b4e1A65949AB2ac75979D5d0166Eb7A248Ccb#writeContract) to mint directly
+
+**Quick Mint via Basescan:**
+1. Go to [MockUSDC Contract](https://sepolia.basescan.org/address/0x444b4e1A65949AB2ac75979D5d0166Eb7A248Ccb#writeContract)
+2. Connect your wallet (MetaMask)
+3. Find `mint` function
+4. Enter: `to` = your address, `amount` = 10000000000 (10,000 USDC)
+5. Click "Write" and confirm transaction
+
+### Understanding Requester vs Provider
+
+The **private key in credentials** determines YOUR identity in the transaction:
+
+| Your Role | Your Credentials | What You Do |
+|-----------|------------------|-------------|
+| **Requester** (buyer) | Your wallet private key | Create Transaction, Link Escrow, Release Payment |
+| **Provider** (seller) | Your wallet private key | Transition State, Deliver Work |
+
+**Example Setup:**
+
+**If you are the Requester (paying for a service):**
+- Credentials: Your wallet with USDC funds
+- Create Transaction: Enter the **provider's** Ethereum address
+- Your address is automatically used as the requester (derived from your private key)
+
+**If you are the Provider (delivering a service):**
+- Credentials: Your wallet (to sign state transitions)
+- You receive the Transaction ID from the requester
+- Use "Transition State" to mark work as IN_PROGRESS → DELIVERED
+
+**Can I use the same wallet for both roles?**
+- **For testing**: Yes, you can be both requester and provider with the same wallet
+- **In production**: No, this defeats the purpose (you'd be paying yourself)
+
+**Two-Party Workflow:**
+```
+Requester Workflow (n8n instance A):     Provider Workflow (n8n instance B):
+┌─────────────────────────┐              ┌─────────────────────────┐
+│ Credentials: Requester  │              │ Credentials: Provider   │
+│ Private Key: 0xAAA...   │              │ Private Key: 0xBBB...   │
+└─────────────────────────┘              └─────────────────────────┘
+         │                                        │
+         ▼                                        │
+   Create Transaction ──── txId ─────────────────►│
+   (provider: 0xBBB...)                           │
+         │                                        ▼
+         ▼                                  Transition State
+   Link Escrow                              (IN_PROGRESS)
+         │                                        │
+         │                                        ▼
+         │                                  Transition State
+         │                                  (DELIVERED)
+         │                                        │
+         │◄────────── attestation UID ───────────┘
+         ▼
+   Release With Verification
+         │
+         ▼
+   Provider receives USDC
+```
+
 ## Operations
 
 ### Create Transaction
