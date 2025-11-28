@@ -67,10 +67,10 @@ export class Actp implements INodeType {
 						action: 'Transition transaction state',
 					},
 					{
-						name: 'Release Escrow',
+						name: '⚠️ Release Escrow (Legacy)',
 						value: 'releaseEscrow',
-						description: 'Release locked funds to provider (requester side)',
-						action: 'Release escrow funds',
+						description: 'LEGACY: Releases escrow WITHOUT attestation verification. Use "Release With Verification" instead.',
+						action: 'Release escrow funds (no verification)',
 					},
 					{
 						name: 'Release With Verification',
