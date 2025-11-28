@@ -1,0 +1,67 @@
+{
+  "name": "n8n-nodes-actp",
+  "version": "1.1.0",
+  "description": "n8n community node for AGIRAILS ACTP (Agent Commerce Transaction Protocol)",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "actp",
+    "agirails",
+    "blockchain",
+    "ethereum",
+    "base",
+    "escrow"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://agirails.io",
+  "author": {
+    "name": "AGIRAILS Inc.",
+    "email": "developers@agirails.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agirails/n8n-nodes-actp.git"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint 'nodes/**/*.ts' 'credentials/**/*.ts'",
+    "lintfix": "eslint 'nodes/**/*.ts' 'credentials/**/*.ts' --fix",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/ActpApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Actp/Actp.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.48.0",
+    "@typescript-eslint/parser": "^8.48.0",
+    "dotenv": "^17.2.3",
+    "eslint": "^8.50.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.1",
+    "gulp": "^4.0.2",
+    "n8n-workflow": "^1.0.0",
+    "prettier": "^3.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.2.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "^1.0.0"
+  },
+  "dependencies": {
+    "@agirails/sdk": "^2.0.1-beta"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

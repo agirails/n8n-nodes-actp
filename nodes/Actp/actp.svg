@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- ACTP Icon - Simplified escrow/transaction representation -->
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="url(#grad1)" />
+
+  <!-- Shield (escrow/security) -->
+  <path d="M32 10 L22 15 L22 28 C22 36 32 42 32 42 C32 42 42 36 42 28 L42 15 Z"
+        fill="white" opacity="0.9" />
+
+  <!-- Transaction arrows -->
+  <path d="M28 22 L28 34" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" />
+  <path d="M36 22 L36 34" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" />
+
+  <!-- Arrow heads -->
+  <path d="M28 32 L26 30 M28 32 L30 30" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" />
+  <path d="M36 24 L34 26 M36 24 L38 26" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" />
+
+  <!-- Bottom text curve -->
+  <path d="M18 50 Q32 54 46 50" stroke="white" stroke-width="2" fill="none" opacity="0.6" />
+</svg>
