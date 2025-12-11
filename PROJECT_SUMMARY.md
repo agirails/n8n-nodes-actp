@@ -5,8 +5,8 @@
 Complete n8n community node implementation for AGIRAILS ACTP (Agent Commerce Transaction Protocol). This node enables workflow automation for blockchain-based AI agent commerce, escrow management, and transaction lifecycle orchestration.
 
 **Status**: ✅ Ready for testing
-**Version**: 1.0.0
-**SDK Dependency**: @agirails/sdk ^2.0.1-beta
+**Version**: 1.3.0
+**SDK Dependency**: @agirails/sdk ^2.1.0
 
 ## Project Structure
 

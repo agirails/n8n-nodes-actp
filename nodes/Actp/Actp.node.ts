@@ -12,8 +12,24 @@ import {
 	parseDeadline,
 	formatUsdcAmount,
 	formatState,
+	sanitizeError,
+	validateEthereumAddress,
 } from './GenericFunctions';
 import { State } from '@agirails/sdk';
+
+// Import descriptions
+import {
+	transactionOperations,
+	transactionFields,
+	escrowOperations,
+	escrowFields,
+	registryOperations,
+	registryFields,
+	didOperations,
+	didFields,
+	storageOperations,
+	storageFields,
+} from './descriptions';
 
 export class Actp implements INodeType {
 	description: INodeTypeDescription = {
@@ -21,9 +37,9 @@ export class Actp implements INodeType {
 		name: 'actp',
 		icon: 'file:actp.svg',
 		group: ['transform'],
-		version: 1,
-		subtitle: '={{$parameter["operation"]}}',
-		description: 'Interact with AGIRAILS ACTP (Agent Commerce Transaction Protocol)',
+		version: 2,
+		subtitle: '={{$parameter["resource"] + ": " + $parameter["operation"]}}',
+		description: 'AGIRAILS ACTP - Agent Commerce Transaction Protocol (AIP-7)',
 		defaults: {
 			name: 'ACTP',
 		},
@@ -34,253 +50,63 @@ export class Actp implements INodeType {
 				name: 'actpApi',
 				required: true,
 			},
+			{
+				name: 'actpStorage',
+				required: false,
+				displayOptions: {
+					show: {
+						resource: ['storage'],
+					},
+				},
+			},
 		],
 		properties: [
+			// Resource selector
 			{
-				displayName: 'Operation',
-				name: 'operation',
+				displayName: 'Resource',
+				name: 'resource',
 				type: 'options',
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Create Transaction',
-						value: 'createTransaction',
-						description: 'Create a new ACTP transaction (requester side)',
-						action: 'Create a new transaction',
+						name: 'Transaction',
+						value: 'transaction',
+						description: 'Core transaction lifecycle operations',
 					},
 					{
-						name: 'Link Escrow',
-						value: 'linkEscrow',
-						description: 'Link escrow to transaction and lock funds (requester side)',
-						action: 'Link escrow to transaction',
+						name: 'Escrow',
+						value: 'escrow',
+						description: 'Fund management and release operations',
 					},
 					{
-						name: 'Get Transaction',
-						value: 'getTransaction',
-						description: 'Retrieve transaction details and current state',
-						action: 'Get transaction details',
+						name: 'Agent Registry',
+						value: 'registry',
+						description: 'Agent identity, services, and reputation (AIP-7)',
 					},
 					{
-						name: 'Transition State',
-						value: 'transitionState',
-						description: 'Transition transaction to new state (provider side)',
-						action: 'Transition transaction state',
+						name: 'DID',
+						value: 'did',
+						description: 'Decentralized Identity operations (AIP-7)',
 					},
 					{
-						name: '⚠️ Release Escrow (Legacy)',
-						value: 'releaseEscrow',
-						description: 'LEGACY: Releases escrow WITHOUT attestation verification. Use "Release With Verification" instead.',
-						action: 'Release escrow funds (no verification)',
-					},
-					{
-						name: 'Release With Verification',
-						value: 'releaseWithVerification',
-						description: 'Atomically verify attestation and release escrow (RECOMMENDED)',
-						action: 'Verify and release escrow',
-					},
-					{
-						name: 'Verify Attestation',
-						value: 'verifyAttestation',
-						description: 'Verify delivery attestation before releasing escrow',
-						action: 'Verify delivery attestation',
-					},
-					{
-						name: 'Raise Dispute',
-						value: 'raiseDispute',
-						description: 'Raise a dispute on delivered transaction',
-						action: 'Raise a dispute',
-					},
-					{
-						name: 'Cancel Transaction',
-						value: 'cancelTransaction',
-						description: 'Cancel transaction before delivery (transitions to CANCELLED state)',
-						action: 'Cancel transaction',
+						name: 'Storage',
+						value: 'storage',
+						description: 'IPFS storage via Filebase (AIP-7)',
 					},
 				],
-				default: 'createTransaction',
+				default: 'transaction',
 			},
-
-			// ============ Create Transaction ============
-			{
-				displayName: 'Provider Address',
-				name: 'provider',
-				type: 'string',
-				displayOptions: {
-					show: {
-						operation: ['createTransaction'],
-					},
-				},
-				default: '',
-				required: true,
-				placeholder: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-				description: 'Ethereum address of the service provider (agent)',
-			},
-			{
-				displayName: 'Amount (USDC)',
-				name: 'amount',
-				type: 'number',
-				displayOptions: {
-					show: {
-						operation: ['createTransaction'],
-					},
-				},
-				default: 10,
-				required: true,
-				description: 'Transaction amount in USDC (e.g., 10.50)',
-				typeOptions: {
-					minValue: 0.05,
-				},
-			},
-			{
-				displayName: 'Deadline',
-				name: 'deadline',
-				type: 'string',
-				displayOptions: {
-					show: {
-						operation: ['createTransaction'],
-					},
-				},
-				default: '',
-				required: true,
-				placeholder: '2025-12-31T23:59:59Z or Unix timestamp',
-				description: 'Transaction deadline (ISO date string or Unix timestamp in seconds)',
-			},
-			{
-				displayName: 'Dispute Window (Seconds)',
-				name: 'disputeWindow',
-				type: 'number',
-				displayOptions: {
-					show: {
-						operation: ['createTransaction'],
-					},
-				},
-				default: 172800,
-				required: true,
-				description: 'Dispute window duration in seconds (default: 172800 = 2 days)',
-				typeOptions: {
-					minValue: 3600,
-					maxValue: 2592000,
-				},
-			},
-
-			// ============ Link Escrow ============
-			{
-				displayName: 'Transaction ID',
-				name: 'transactionId',
-				type: 'string',
-				displayOptions: {
-					show: {
-						operation: [
-							'linkEscrow',
-							'getTransaction',
-							'transitionState',
-							'releaseEscrow',
-							'releaseWithVerification',
-							'verifyAttestation',
-							'raiseDispute',
-							'cancelTransaction',
-						],
-					},
-				},
-				default: '',
-				required: true,
-				placeholder: '0x1234567890abcdef...',
-				description: 'Transaction ID (bytes32 hex string)',
-			},
-			{
-				displayName: 'Escrow Amount (USDC)',
-				name: 'escrowAmount',
-				type: 'number',
-				displayOptions: {
-					show: {
-						operation: ['linkEscrow'],
-					},
-				},
-				default: 0,
-				required: false,
-				description: 'Amount to lock in escrow (USDC). If not specified, automatically calculated as transaction amount + 1% fee.',
-			},
-
-			// ============ Transition State ============
-			{
-				displayName: 'Target State',
-				name: 'targetState',
-				type: 'options',
-				displayOptions: {
-					show: {
-						operation: ['transitionState'],
-					},
-				},
-				options: [
-					{
-						name: 'Quoted',
-						value: State.QUOTED,
-						description: 'Provider submitted price quote',
-					},
-					{
-						name: 'In Progress',
-						value: State.IN_PROGRESS,
-						description: 'Provider actively working on service',
-					},
-					{
-						name: 'Delivered',
-						value: State.DELIVERED,
-						description: 'Provider delivered result',
-					},
-				],
-				default: State.IN_PROGRESS,
-				required: true,
-				description: 'Target state to transition to',
-			},
-
-			// ============ Raise Dispute ============
-			{
-				displayName: 'Dispute Reason',
-				name: 'disputeReason',
-				type: 'string',
-				displayOptions: {
-					show: {
-						operation: ['raiseDispute'],
-					},
-				},
-				default: '',
-				required: true,
-				typeOptions: {
-					rows: 4,
-				},
-				description: 'Reason for raising the dispute',
-			},
-			{
-				displayName: 'Evidence',
-				name: 'evidence',
-				type: 'string',
-				displayOptions: {
-					show: {
-						operation: ['raiseDispute'],
-					},
-				},
-				default: '',
-				typeOptions: {
-					rows: 4,
-				},
-				description: 'Optional evidence supporting the dispute (e.g., IPFS hash, screenshots)',
-			},
-
-			// ============ Attestation UID (for verification operations) ============
-			{
-				displayName: 'Attestation UID',
-				name: 'attestationUID',
-				type: 'string',
-				displayOptions: {
-					show: {
-						operation: ['verifyAttestation', 'releaseWithVerification'],
-					},
-				},
-				default: '',
-				required: true,
-				placeholder: '0xabcdef1234567890...',
-				description: 'EAS attestation UID (bytes32 hex string) from provider delivery',
-			},
+			// Operations and fields for each resource
+			...transactionOperations,
+			...transactionFields,
+			...escrowOperations,
+			...escrowFields,
+			...registryOperations,
+			...registryFields,
+			...didOperations,
+			...didFields,
+			...storageOperations,
+			...storageFields,
 		],
 	};
 
@@ -288,255 +114,715 @@ export class Actp implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
+		const resource = this.getNodeParameter('resource', 0) as string;
 		const operation = this.getNodeParameter('operation', 0) as string;
 
 		for (let i = 0; i < items.length; i++) {
 			try {
-				const client = await getActpClient.call(this, i);
+				// Route to appropriate handler
+				let result: any;
 
-				if (operation === 'createTransaction') {
-					// ============ Create Transaction ============
-					const provider = this.getNodeParameter('provider', i) as string;
-					const amount = this.getNodeParameter('amount', i) as number;
-					const deadlineInput = this.getNodeParameter('deadline', i) as string;
-					const disputeWindow = this.getNodeParameter('disputeWindow', i) as number;
-
-					const deadline = parseDeadline(deadlineInput);
-					const amountWei = parseUsdcAmount(amount);
-
-					const requester = await client.getAddress();
-
-					const txId = await client.kernel.createTransaction({
-						requester,
-						provider,
-						amount: amountWei,
-						deadline,
-						disputeWindow,
-					});
-
-					returnData.push({
-						json: {
-							transactionId: txId,
-							requester,
-							provider,
-							amount: amount.toString(),
-							deadline,
-							disputeWindow,
-							state: 'INITIATED',
-							message: 'Transaction created successfully',
-						},
-						pairedItem: { item: i },
-					});
-				} else if (operation === 'linkEscrow') {
-					// ============ Link Escrow ============
-					const transactionId = parseTransactionId(
-						this.getNodeParameter('transactionId', i) as string,
-					);
-				let escrowAmount = this.getNodeParameter('escrowAmount', i, 0) as number;
-				let amountWei: bigint;
-
-				// Auto-calculate escrow amount if not provided
-				if (escrowAmount === 0) {
-					// Fetch transaction to get amount
-					const tx = await client.kernel.getTransaction(transactionId);
-					const fee = tx.amount / BigInt(100); // 1% fee
-					amountWei = tx.amount + fee;
-					// Convert back to USDC decimal for display
-					escrowAmount = Number(amountWei) / 1000000; // USDC has 6 decimals
-				} else {
-					amountWei = parseUsdcAmount(escrowAmount);
+				switch (resource) {
+					case 'transaction':
+						result = await handleTransaction.call(this, i, operation);
+						break;
+					case 'escrow':
+						result = await handleEscrow.call(this, i, operation);
+						break;
+					case 'registry':
+						result = await handleRegistry.call(this, i, operation);
+						break;
+					case 'did':
+						result = await handleDID.call(this, i, operation);
+						break;
+					case 'storage':
+						result = await handleStorage.call(this, i, operation);
+						break;
+					default:
+						throw new NodeOperationError(this.getNode(), `Unknown resource: ${resource}`, { itemIndex: i });
 				}
-
-					// Get network config to get USDC address
-					const networkConfig = client.getNetworkConfig();
-
-					// Step 1: Approve USDC to escrow vault
-					await client.escrow.approveToken(networkConfig.contracts.usdc, amountWei);
-
-					// Step 2: Generate unique escrow ID (bytes32)
-					const { id } = await import('ethers');
-					const escrowId = id(`escrow-${transactionId}-${Date.now()}`);
-
-					// Step 3: Link escrow (this pulls USDC and transitions to COMMITTED)
-					await client.kernel.linkEscrow(
-						transactionId,
-						networkConfig.contracts.escrowVault,
-						escrowId,
-					);
-
-					returnData.push({
-						json: {
-							transactionId,
-							escrowId,
-							escrowAmount: escrowAmount.toString(),
-						autoCalculated: this.getNodeParameter("escrowAmount", i, 0) === 0,
-							state: 'COMMITTED',
-							message: 'Escrow linked successfully. Transaction moved to COMMITTED state.',
-						},
-						pairedItem: { item: i },
-					});
-				} else if (operation === 'getTransaction') {
-					// ============ Get Transaction ============
-					const transactionId = parseTransactionId(
-						this.getNodeParameter('transactionId', i) as string,
-					);
-
-					const tx = await client.kernel.getTransaction(transactionId);
-
-					returnData.push({
-						json: {
-							transactionId,
-							requester: tx.requester,
-							provider: tx.provider,
-							amount: formatUsdcAmount(tx.amount),
-							state: formatState(tx.state),
-							stateValue: tx.state,
-							deadline: Number(tx.deadline),
-							disputeWindow: Number(tx.disputeWindow),
-							createdAt: Number(tx.createdAt),
-							escrowContract: tx.escrowContract || null,
-							escrowId: tx.escrowId || null,
-							metadata: tx.metadata || null,
-						},
-						pairedItem: { item: i },
-					});
-				} else if (operation === 'transitionState') {
-					// ============ Transition State ============
-					const transactionId = parseTransactionId(
-						this.getNodeParameter('transactionId', i) as string,
-					);
-					const targetState = this.getNodeParameter('targetState', i) as number;
-
-					await client.kernel.transitionState(transactionId, targetState);
-
-					returnData.push({
-						json: {
-							transactionId,
-							newState: formatState(targetState),
-							stateValue: targetState,
-							message: `Transaction transitioned to ${formatState(targetState)} successfully`,
-						},
-						pairedItem: { item: i },
-					});
-				} else if (operation === 'releaseEscrow') {
-					// ============ Release Escrow ============
-					const transactionId = parseTransactionId(
-						this.getNodeParameter('transactionId', i) as string,
-					);
-
-					await client.kernel.releaseEscrow(transactionId);
-
-					returnData.push({
-						json: {
-							transactionId,
-							state: 'SETTLED',
-							message: 'Escrow released successfully. Transaction settled.',
-						},
-						pairedItem: { item: i },
-					});
-				} else if (operation === 'verifyAttestation') {
-				// ============ Verify Attestation ============
-				const transactionId = parseTransactionId(
-					this.getNodeParameter('transactionId', i) as string,
-				);
-				const attestationUID = this.getNodeParameter('attestationUID', i) as string;
-
-				// Check if EAS is available
-				if (!client.eas) {
-					throw new NodeOperationError(
-						this.getNode(),
-						'EAS not configured for this network. Please check SDK configuration.',
-						{ itemIndex: i }
-					);
-				}
-
-				const verified = await client.eas.verifyDeliveryAttestation(transactionId, attestationUID);
 
 				returnData.push({
-					json: {
-						transactionId,
-						attestationUID,
-						verified,
-						message: verified
-							? 'Attestation verified successfully'
-							: 'Attestation verification failed',
-					},
+					json: result,
 					pairedItem: { item: i },
 				});
-			} else if (operation === 'releaseWithVerification') {
-				// ============ Release With Verification ============
-				const transactionId = parseTransactionId(
-					this.getNodeParameter('transactionId', i) as string,
-				);
-				const attestationUID = this.getNodeParameter('attestationUID', i) as string;
-
-				// Use SDK's atomic verify + release method
-				await client.releaseEscrowWithVerification(transactionId, attestationUID);
-
-				returnData.push({
-					json: {
-						transactionId,
-						attestationUID,
-						verified: true,
-						state: 'SETTLED',
-						message: 'Attestation verified and escrow released successfully. Transaction settled.',
-					},
-					pairedItem: { item: i },
-				});
-						} else if (operation === 'raiseDispute') {
-					// ============ Raise Dispute ============
-					const transactionId = parseTransactionId(
-						this.getNodeParameter('transactionId', i) as string,
-					);
-					const disputeReason = this.getNodeParameter('disputeReason', i) as string;
-					const evidence = this.getNodeParameter('evidence', i, '') as string;
-
-					// SDK raiseDispute expects (txId, reason, evidence) separately
-					await client.kernel.raiseDispute(transactionId, disputeReason, evidence);
-
-					returnData.push({
-						json: {
-							transactionId,
-							disputeReason,
-							evidence,
-							state: 'DISPUTED',
-							message: 'Dispute raised successfully',
-						},
-						pairedItem: { item: i },
-					});
-				} else if (operation === 'cancelTransaction') {
-					// ============ Cancel Transaction ============
-					const transactionId = parseTransactionId(
-						this.getNodeParameter('transactionId', i) as string,
-					);
-
-					// Cancel is done via transitionState to CANCELLED
-					await client.kernel.transitionState(transactionId, State.CANCELLED);
-
-					returnData.push({
-						json: {
-							transactionId,
-							state: 'CANCELLED',
-							message: 'Transaction cancelled successfully',
-						},
-						pairedItem: { item: i },
-					});
-				}
 			} catch (error: any) {
+				// Sanitize error to prevent private key exposure
+				const sanitizedMessage = sanitizeError(error);
+
 				if (this.continueOnFail()) {
 					returnData.push({
 						json: {
-							error: error.message,
+							error: sanitizedMessage,
+							resource,
 							operation,
 						},
 						pairedItem: { item: i },
 					});
 					continue;
 				}
-				throw new NodeOperationError(this.getNode(), error.message, { itemIndex: i });
+				throw new NodeOperationError(this.getNode(), sanitizedMessage, { itemIndex: i });
 			}
 		}
 
 		return [returnData];
+	}
+}
+
+// ========== TRANSACTION HANDLERS ==========
+
+async function handleTransaction(this: IExecuteFunctions, i: number, operation: string): Promise<any> {
+	const client = await getActpClient.call(this, i);
+
+	switch (operation) {
+		case 'create': {
+			const providerInput = this.getNodeParameter('provider', i) as string;
+			const amount = this.getNodeParameter('amount', i) as number;
+			const deadlineInput = this.getNodeParameter('deadline', i) as string;
+			const disputeWindow = this.getNodeParameter('disputeWindow', i) as number;
+
+			// Validate provider address
+			const provider = validateEthereumAddress(providerInput, 'provider');
+
+			const deadline = parseDeadline(deadlineInput);
+			const amountWei = parseUsdcAmount(amount);
+			const requester = await client.getAddress();
+
+			const txId = await client.kernel.createTransaction({
+				requester,
+				provider,
+				amount: amountWei,
+				deadline,
+				disputeWindow,
+			});
+
+			return {
+				transactionId: txId,
+				requester,
+				provider,
+				amount: amount.toString(),
+				deadline,
+				disputeWindow,
+				state: 'INITIATED',
+				message: 'Transaction created successfully',
+			};
+		}
+
+		case 'get': {
+			const transactionId = parseTransactionId(this.getNodeParameter('transactionId', i) as string);
+			const tx = await client.kernel.getTransaction(transactionId);
+
+			return {
+				transactionId,
+				requester: tx.requester,
+				provider: tx.provider,
+				amount: formatUsdcAmount(tx.amount),
+				state: formatState(tx.state),
+				stateValue: tx.state,
+				deadline: Number(tx.deadline),
+				disputeWindow: Number(tx.disputeWindow),
+				createdAt: Number(tx.createdAt),
+				escrowContract: tx.escrowContract || null,
+				escrowId: tx.escrowId || null,
+				metadata: tx.metadata || null,
+			};
+		}
+
+		case 'transitionState': {
+			const transactionId = parseTransactionId(this.getNodeParameter('transactionId', i) as string);
+			const targetState = this.getNodeParameter('targetState', i) as number;
+
+			await client.kernel.transitionState(transactionId, targetState);
+
+			return {
+				transactionId,
+				newState: formatState(targetState),
+				stateValue: targetState,
+				message: `Transaction transitioned to ${formatState(targetState)} successfully`,
+			};
+		}
+
+		case 'raiseDispute': {
+			const transactionId = parseTransactionId(this.getNodeParameter('transactionId', i) as string);
+			const disputeReason = this.getNodeParameter('disputeReason', i) as string;
+			const evidence = this.getNodeParameter('evidence', i, '') as string;
+
+			await client.kernel.raiseDispute(transactionId, disputeReason, evidence);
+
+			return {
+				transactionId,
+				disputeReason,
+				evidence,
+				state: 'DISPUTED',
+				message: 'Dispute raised successfully',
+			};
+		}
+
+		case 'cancel': {
+			const transactionId = parseTransactionId(this.getNodeParameter('transactionId', i) as string);
+
+			await client.kernel.transitionState(transactionId, State.CANCELLED);
+
+			return {
+				transactionId,
+				state: 'CANCELLED',
+				message: 'Transaction cancelled successfully',
+			};
+		}
+
+		default:
+			throw new Error(`Unknown transaction operation: ${operation}`);
+	}
+}
+
+// ========== ESCROW HANDLERS ==========
+
+async function handleEscrow(this: IExecuteFunctions, i: number, operation: string): Promise<any> {
+	const client = await getActpClient.call(this, i);
+
+	switch (operation) {
+		case 'link': {
+			const transactionId = parseTransactionId(this.getNodeParameter('transactionId', i) as string);
+			let escrowAmount = this.getNodeParameter('escrowAmount', i, 0) as number;
+			let amountWei: bigint;
+
+			// Auto-calculate escrow amount if not provided
+			if (escrowAmount === 0) {
+				const tx = await client.kernel.getTransaction(transactionId);
+				// 1% fee = 100 basis points out of 10000, with ceiling division
+				// Formula: ceil(amount * 100 / 10000) = (amount * 100 + 9999) / 10000
+				const FEE_BPS = BigInt(100); // 1% = 100 basis points
+				const BPS_DIVISOR = BigInt(10000);
+				const fee = (tx.amount * FEE_BPS + BPS_DIVISOR - BigInt(1)) / BPS_DIVISOR;
+				amountWei = tx.amount + fee;
+				escrowAmount = Number(amountWei) / 1000000;
+			} else {
+				amountWei = parseUsdcAmount(escrowAmount);
+			}
+
+			const networkConfig = client.getNetworkConfig();
+
+			// Step 1: Approve USDC to escrow vault
+			await client.escrow.approveToken(networkConfig.contracts.usdc, amountWei);
+
+			// Step 2: Generate unique escrow ID
+			const { id } = await import('ethers');
+			const escrowId = id(`escrow-${transactionId}-${Date.now()}`);
+
+			// Step 3: Link escrow
+			await client.kernel.linkEscrow(
+				transactionId,
+				networkConfig.contracts.escrowVault,
+				escrowId,
+			);
+
+			return {
+				transactionId,
+				escrowId,
+				escrowAmount: escrowAmount.toString(),
+				autoCalculated: this.getNodeParameter('escrowAmount', i, 0) === 0,
+				state: 'COMMITTED',
+				message: 'Escrow linked successfully. Transaction moved to COMMITTED state.',
+			};
+		}
+
+		case 'releaseWithVerification': {
+			const transactionId = parseTransactionId(this.getNodeParameter('transactionId', i) as string);
+			const attestationUID = this.getNodeParameter('attestationUID', i) as string;
+
+			await client.releaseEscrowWithVerification(transactionId, attestationUID);
+
+			return {
+				transactionId,
+				attestationUID,
+				verified: true,
+				state: 'SETTLED',
+				message: 'Attestation verified and escrow released successfully. Transaction settled.',
+			};
+		}
+
+		case 'verifyAttestation': {
+			const transactionId = parseTransactionId(this.getNodeParameter('transactionId', i) as string);
+			const attestationUID = this.getNodeParameter('attestationUID', i) as string;
+
+			if (!client.eas) {
+				throw new Error('EAS not configured for this network. Please check SDK configuration.');
+			}
+
+			const verified = await client.eas.verifyDeliveryAttestation(transactionId, attestationUID);
+
+			return {
+				transactionId,
+				attestationUID,
+				verified,
+				message: verified ? 'Attestation verified successfully' : 'Attestation verification failed',
+			};
+		}
+
+		case 'releaseLegacy': {
+			const transactionId = parseTransactionId(this.getNodeParameter('transactionId', i) as string);
+
+			await client.kernel.releaseEscrow(transactionId);
+
+			return {
+				transactionId,
+				state: 'SETTLED',
+				message: 'Escrow released successfully (legacy mode, no verification). Transaction settled.',
+			};
+		}
+
+		default:
+			throw new Error(`Unknown escrow operation: ${operation}`);
+	}
+}
+
+// ========== REGISTRY HANDLERS (AIP-7) ==========
+
+async function handleRegistry(this: IExecuteFunctions, i: number, operation: string): Promise<any> {
+	const client = await getActpClient.call(this, i);
+
+	// Registry module may not be available if contract not deployed or SDK not updated
+	const registry = (client as any).registry;
+	if (!registry) {
+		throw new Error('Agent Registry not available. The AgentRegistry contract may not be deployed on this network yet, or the SDK needs to be updated to a version that includes AIP-7 support.');
+	}
+
+	switch (operation) {
+		case 'registerAgent': {
+			const endpoint = this.getNodeParameter('endpoint', i) as string;
+			const serviceDescriptorsInput = this.getNodeParameter('serviceDescriptors', i) as {
+				services?: Array<{
+					serviceType: string;
+					schemaURI?: string;
+					minPrice: number;
+					maxPrice: number;
+					avgCompletionTime: number;
+					metadataCID?: string;
+				}>;
+			};
+
+			const services = serviceDescriptorsInput.services || [];
+
+			if (services.length === 0) {
+				throw new Error('At least one service descriptor is required');
+			}
+
+			// Build service descriptors with computed hashes
+			const serviceDescriptors = services.map((s) => ({
+				serviceTypeHash: registry.computeServiceTypeHash(s.serviceType),
+				serviceType: s.serviceType,
+				schemaURI: s.schemaURI || '',
+				minPrice: parseUsdcAmount(s.minPrice),
+				maxPrice: parseUsdcAmount(s.maxPrice),
+				avgCompletionTime: s.avgCompletionTime,
+				metadataCID: s.metadataCID || '',
+			}));
+
+			const txHash = await registry.registerAgent({
+				endpoint,
+				serviceDescriptors,
+			});
+
+			return {
+				txHash,
+				endpoint,
+				servicesRegistered: services.length,
+				message: 'Agent registered successfully',
+			};
+		}
+
+		case 'getAgent': {
+			const agentAddressInput = this.getNodeParameter('agentAddress', i) as string;
+			// Validate agent address
+			const agentAddress = validateEthereumAddress(agentAddressInput, 'agentAddress');
+			const profile = await registry.getAgent(agentAddress);
+
+			if (!profile) {
+				return {
+					agentAddress,
+					found: false,
+					message: 'Agent not registered',
+				};
+			}
+
+			return {
+				found: true,
+				agentAddress: profile.agentAddress,
+				did: profile.did,
+				endpoint: profile.endpoint,
+				serviceTypes: profile.serviceTypes,
+				reputationScore: profile.reputationScore,
+				totalTransactions: profile.totalTransactions,
+				disputedTransactions: profile.disputedTransactions,
+				totalVolumeUSDC: formatUsdcAmount(profile.totalVolumeUSDC),
+				isActive: profile.isActive,
+				registeredAt: profile.registeredAt,
+				updatedAt: profile.updatedAt,
+			};
+		}
+
+		case 'getAgentByDID': {
+			const did = this.getNodeParameter('did', i) as string;
+			const profile = await registry.getAgentByDID(did);
+
+			if (!profile) {
+				return {
+					did,
+					found: false,
+					message: 'Agent not found for this DID',
+				};
+			}
+
+			return {
+				found: true,
+				agentAddress: profile.agentAddress,
+				did: profile.did,
+				endpoint: profile.endpoint,
+				serviceTypes: profile.serviceTypes,
+				reputationScore: profile.reputationScore,
+				totalTransactions: profile.totalTransactions,
+				disputedTransactions: profile.disputedTransactions,
+				totalVolumeUSDC: formatUsdcAmount(profile.totalVolumeUSDC),
+				isActive: profile.isActive,
+				registeredAt: profile.registeredAt,
+				updatedAt: profile.updatedAt,
+			};
+		}
+
+		case 'queryAgents': {
+			const serviceType = this.getNodeParameter('serviceType', i) as string;
+			const minReputation = this.getNodeParameter('minReputation', i, 0) as number;
+			const limit = this.getNodeParameter('limit', i, 100) as number;
+			const offset = this.getNodeParameter('offset', i, 0) as number;
+
+			const serviceTypeHash = registry.computeServiceTypeHash(serviceType);
+
+			const agents = await registry.queryAgentsByService({
+				serviceTypeHash,
+				minReputation,
+				limit,
+				offset,
+			});
+
+			return {
+				serviceType,
+				serviceTypeHash,
+				minReputation,
+				count: agents.length,
+				agents,
+				hasMore: agents.length === limit,
+			};
+		}
+
+		case 'getServiceDescriptors': {
+			const agentAddressInput = this.getNodeParameter('agentAddress', i) as string;
+			// Validate agent address
+			const agentAddress = validateEthereumAddress(agentAddressInput, 'agentAddress');
+			const descriptors = await registry.getServiceDescriptors(agentAddress);
+
+			return {
+				agentAddress,
+				count: descriptors.length,
+				services: descriptors.map((d: any) => ({
+					serviceType: d.serviceType,
+					serviceTypeHash: d.serviceTypeHash,
+					schemaURI: d.schemaURI,
+					minPrice: formatUsdcAmount(d.minPrice),
+					maxPrice: formatUsdcAmount(d.maxPrice),
+					avgCompletionTime: d.avgCompletionTime,
+					metadataCID: d.metadataCID,
+				})),
+			};
+		}
+
+		case 'updateEndpoint': {
+			const endpoint = this.getNodeParameter('endpoint', i) as string;
+			const txHash = await registry.updateEndpoint(endpoint);
+
+			return {
+				txHash,
+				newEndpoint: endpoint,
+				message: 'Endpoint updated successfully',
+			};
+		}
+
+		case 'addServiceType': {
+			const serviceType = this.getNodeParameter('serviceType', i) as string;
+			const txHash = await registry.addServiceType(serviceType);
+			const serviceTypeHash = registry.computeServiceTypeHash(serviceType);
+
+			return {
+				txHash,
+				serviceType,
+				serviceTypeHash,
+				message: 'Service type added successfully',
+			};
+		}
+
+		case 'removeServiceType': {
+			const serviceTypeHash = this.getNodeParameter('serviceTypeHash', i) as string;
+			const txHash = await registry.removeServiceType(serviceTypeHash);
+
+			return {
+				txHash,
+				serviceTypeHash,
+				message: 'Service type removed successfully',
+			};
+		}
+
+		case 'setActiveStatus': {
+			const isActive = this.getNodeParameter('isActive', i) as boolean;
+			const txHash = await registry.setActiveStatus(isActive);
+
+			return {
+				txHash,
+				isActive,
+				message: isActive ? 'Agent is now active' : 'Agent is now inactive',
+			};
+		}
+
+		case 'computeServiceTypeHash': {
+			const serviceType = this.getNodeParameter('serviceType', i) as string;
+			const hash = registry.computeServiceTypeHash(serviceType);
+
+			return {
+				serviceType,
+				serviceTypeHash: hash,
+			};
+		}
+
+		case 'buildDID': {
+			const agentAddressInput = this.getNodeParameter('agentAddress', i) as string;
+			// Validate agent address
+			const agentAddress = validateEthereumAddress(agentAddressInput, 'agentAddress');
+			const did = await registry.buildDID(agentAddress);
+
+			return {
+				address: agentAddress,
+				did,
+			};
+		}
+
+		default:
+			throw new Error(`Unknown registry operation: ${operation}`);
+	}
+}
+
+// ========== DID HANDLERS (AIP-7) ==========
+
+async function handleDID(this: IExecuteFunctions, i: number, operation: string): Promise<any> {
+	// Try to dynamically import DIDResolver
+	let DIDResolver: any;
+	try {
+		const sdk = await import('@agirails/sdk');
+		DIDResolver = (sdk as any).DIDResolver;
+		if (!DIDResolver) {
+			throw new Error('DIDResolver not found in SDK');
+		}
+	} catch (error) {
+		throw new Error('DID operations require SDK version with AIP-7 support. Please update @agirails/sdk to the latest version.');
+	}
+
+	const credentials = await this.getCredentials('actpApi', i);
+	const network = credentials.network as 'base-sepolia' | 'base-mainnet';
+
+	// Create DID resolver
+	const resolver = await DIDResolver.create({ network });
+
+	switch (operation) {
+		case 'resolve': {
+			const did = this.getNodeParameter('did', i) as string;
+			const result = await resolver.resolve(did);
+
+			return {
+				did,
+				resolved: result.didDocument !== null,
+				didDocument: result.didDocument,
+				didResolutionMetadata: result.didResolutionMetadata,
+				didDocumentMetadata: result.didDocumentMetadata,
+			};
+		}
+
+		case 'verifySignature': {
+			const did = this.getNodeParameter('did', i) as string;
+			const message = this.getNodeParameter('message', i) as string;
+			const signature = this.getNodeParameter('signature', i) as string;
+			const useDomainSeparation = this.getNodeParameter('useDomainSeparation', i, true) as boolean;
+			const timestamp = this.getNodeParameter('timestamp', i, 0) as number;
+
+			const chainId = DIDResolver.extractChainId(did);
+
+			const result = await resolver.verifySignature(did, message, signature, {
+				chainId,
+				useDomainSeparation,
+				timestamp: timestamp > 0 ? timestamp : undefined,
+			});
+
+			return {
+				did,
+				valid: result.valid,
+				signer: result.signer,
+				isDelegate: result.isDelegate,
+				delegateType: result.delegateType,
+				error: result.error,
+			};
+		}
+
+		case 'buildDID': {
+			const addressInput = this.getNodeParameter('address', i) as string;
+			const chainId = this.getNodeParameter('chainId', i) as number;
+
+			// Validate address
+			const address = validateEthereumAddress(addressInput, 'address');
+
+			const did = DIDResolver.buildDID(address, chainId);
+
+			return {
+				address,
+				chainId,
+				did,
+			};
+		}
+
+		case 'parseDID': {
+			const did = this.getNodeParameter('did', i) as string;
+			const parsed = DIDResolver.parseDID(did);
+
+			return {
+				did,
+				method: parsed.method,
+				chainId: parsed.chainId,
+				address: parsed.address,
+			};
+		}
+
+		case 'validateDID': {
+			const did = this.getNodeParameter('did', i) as string;
+			const isValid = DIDResolver.isValidDID(did);
+
+			return {
+				did,
+				valid: isValid,
+			};
+		}
+
+		case 'extractAddress': {
+			const did = this.getNodeParameter('did', i) as string;
+			const address = DIDResolver.extractAddress(did);
+
+			return {
+				did,
+				address,
+			};
+		}
+
+		case 'extractChainId': {
+			const did = this.getNodeParameter('did', i) as string;
+			const chainId = DIDResolver.extractChainId(did);
+
+			return {
+				did,
+				chainId,
+			};
+		}
+
+		default:
+			throw new Error(`Unknown DID operation: ${operation}`);
+	}
+}
+
+// ========== STORAGE HANDLERS (AIP-7) ==========
+
+async function handleStorage(this: IExecuteFunctions, i: number, operation: string): Promise<any> {
+	// Try to dynamically import FilebaseClient
+	let FilebaseClient: any;
+	try {
+		const sdk = await import('@agirails/sdk');
+		FilebaseClient = (sdk as any).FilebaseClient;
+		if (!FilebaseClient) {
+			throw new Error('FilebaseClient not found in SDK');
+		}
+	} catch (error) {
+		throw new Error('Storage operations require SDK version with AIP-7 support. Please update @agirails/sdk to the latest version.');
+	}
+
+	const credentials = await this.getCredentials('actpStorage', i);
+
+	const accessKeyId = credentials.accessKeyId as string;
+	const secretAccessKey = credentials.secretAccessKey as string;
+	const bucketName = credentials.bucketName as string | undefined;
+	const maxUploadSize = credentials.maxUploadSize as number | undefined;
+
+	if (!accessKeyId || !secretAccessKey) {
+		throw new Error('Filebase credentials (accessKeyId and secretAccessKey) are required for storage operations');
+	}
+
+	const filebaseClient = new FilebaseClient({
+		accessKeyId,
+		secretAccessKey,
+		bucketName: bucketName || undefined,
+		maxUploadSize: maxUploadSize ? maxUploadSize * 1024 * 1024 : undefined,
+	});
+
+	switch (operation) {
+		case 'uploadJSON': {
+			const jsonDataString = this.getNodeParameter('jsonData', i) as string;
+			const filename = this.getNodeParameter('filename', i, '') as string;
+
+			// Parse JSON string to object
+			let jsonData: any;
+			try {
+				jsonData = JSON.parse(jsonDataString);
+			} catch (error) {
+				throw new Error(`Invalid JSON data: ${error instanceof Error ? error.message : String(error)}`);
+			}
+
+			const result = await filebaseClient.uploadJSON(jsonData, filename || undefined);
+
+			return {
+				cid: result.cid,
+				size: result.size,
+				uploadedAt: result.uploadedAt,
+				ipfsUrl: `https://ipfs.filebase.io/ipfs/${result.cid}`,
+				message: 'JSON uploaded to IPFS successfully',
+			};
+		}
+
+		case 'downloadJSON': {
+			const cid = this.getNodeParameter('cid', i) as string;
+			const data = await filebaseClient.downloadJSON(cid);
+
+			return {
+				cid,
+				data,
+				ipfsUrl: `https://ipfs.filebase.io/ipfs/${cid}`,
+			};
+		}
+
+		case 'exists': {
+			const cid = this.getNodeParameter('cid', i) as string;
+			const exists = await filebaseClient.exists(cid);
+
+			return {
+				cid,
+				exists,
+				ipfsUrl: exists ? `https://ipfs.filebase.io/ipfs/${cid}` : null,
+			};
+		}
+
+		case 'validateCID': {
+			const cid = this.getNodeParameter('cid', i) as string;
+			const result = filebaseClient.validateCID(cid);
+
+			return {
+				cid,
+				valid: result.valid,
+				version: result.version,
+				error: result.error,
+			};
+		}
+
+		default:
+			throw new Error(`Unknown storage operation: ${operation}`);
 	}
 }
