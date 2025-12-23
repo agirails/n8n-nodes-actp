@@ -1,27 +1,28 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "ES2019",
-    "outDir": "dist",
-    "rootDir": ".",
-    "declaration": true,
     "strict": true,
+    "module": "commonjs",
+    "target": "es2022",
+    "lib": ["es2022"],
+    "moduleResolution": "node",
     "esModuleInterop": true,
-    "resolveJsonModule": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "."
   },
   "include": [
-    "credentials/**/*",
-    "nodes/**/*"
+    "credentials/**/*.ts",
+    "nodes/**/*.ts",
+    "index.ts"
   ],
   "exclude": [
-    "node_modules/**/*",
-    "dist/**/*"
+    "node_modules",
+    "dist",
+    "test"
   ]
 }

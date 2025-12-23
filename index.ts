@@ -1,4 +1,11 @@
-// Entry point for n8n community node package
-// n8n will automatically discover nodes and credentials from package.json n8n section
-export * from './nodes/Actp/Actp.node';
+/**
+ * n8n-nodes-actp - AGIRAILS ACTP Community Node
+ *
+ * Add payment rails to any n8n workflow.
+ * Supports Mock (testing), Testnet (Base Sepolia), and Mainnet (Base).
+ *
+ * @packageDocumentation
+ */
+
+export * from './nodes/ACTP/ACTP.node';
 export * from './credentials/ActpApi.credentials';
