@@ -1,0 +1,37 @@
+# Test files
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+test/
+
+# Development files
+.actp/
+*.log
+
+# Environment files (SECURITY: never publish secrets)
+.env
+.env.*
+
+# Config files
+.eslintrc*
+.prettierrc*
+jest.config.*
+tsconfig.json
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Coverage
+coverage/
+
+# Source TypeScript (publish compiled only)
+nodes/**/*.ts
+!nodes/**/*.d.ts
+credentials/**/*.ts
+!credentials/**/*.d.ts
