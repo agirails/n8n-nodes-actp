@@ -16,6 +16,10 @@ import {
 	formatTransactionAdvanced,
 	formatSuccess,
 	sanitizeError,
+	stateStringToNumber,
+	getTransactionOrThrow,
+	executeSDKOperation,
+	validateTransitionState,
 } from '../utils';
 
 /**
@@ -47,23 +51,28 @@ export async function handleCreateTransaction(
 		const parsedDeadline = parseDeadline(deadlineInput);
 		const parsedDisputeWindow = parseDisputeWindow(disputeWindowInput);
 
-		// Create transaction
-		const txId = await client.intermediate.createTransaction({
-			provider: parsedProvider,
-			amount,
-			deadline: parsedDeadline,
-			disputeWindow: parsedDisputeWindow,
-			serviceDescription: serviceDescription || undefined,
-		});
+		// Create transaction with timeout and retry protection
+		const txId = await executeSDKOperation(
+			() => client.intermediate.createTransaction({
+				provider: parsedProvider,
+				amount,
+				deadline: parsedDeadline,
+				disputeWindow: parsedDisputeWindow,
+				serviceDescription: serviceDescription || undefined,
+			}),
+			'createTransaction',
+			context,
+			itemIndex,
+		);
 
 		// Get created transaction
-		const tx = await client.intermediate.getTransaction(txId);
+		const tx = await getTransactionOrThrow(client, txId, context, itemIndex);
 
 		return [
 			{
 				json: formatSuccess('createTransaction', {
 					transactionId: txId,
-					state: tx?.state || 'INITIATED',
+					state: tx.state,
 					provider: parsedProvider,
 					amount: typeof amount === 'number' ? `$${amount} USDC` : amount,
 					deadline: new Date(parsedDeadline * 1000).toISOString(),
@@ -97,18 +106,23 @@ export async function handleLinkEscrow(
 		const txId = context.getNodeParameter('transactionId', itemIndex) as string;
 		const parsedTxId = parseTransactionId(txId);
 
-		// Link escrow
-		const escrowId = await client.intermediate.linkEscrow(parsedTxId);
+		// Link escrow with timeout and retry protection
+		const escrowId = await executeSDKOperation(
+			() => client.intermediate.linkEscrow(parsedTxId),
+			'linkEscrow',
+			context,
+			itemIndex,
+		);
 
 		// Get updated transaction
-		const tx = await client.intermediate.getTransaction(parsedTxId);
+		const tx = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 
 		return [
 			{
 				json: formatSuccess('linkEscrow', {
 					transactionId: parsedTxId,
 					escrowId,
-					state: tx?.state || 'COMMITTED',
+					state: tx.state,
 					message: 'Escrow linked. Funds are now locked. Provider can start work.',
 				} as IDataObject),
 			},
@@ -137,23 +151,31 @@ export async function handleTransitionState(
 		const newState = context.getNodeParameter('newState', itemIndex) as string;
 		const parsedTxId = parseTransactionId(txId);
 
-		// Get current state for context
-		const txBefore = await client.intermediate.getTransaction(parsedTxId);
-		const stateBefore = txBefore?.state || 'UNKNOWN';
+		// Validate state is a valid transition target (fixes type safety - no more `as any`)
+		const validatedState = validateTransitionState(newState, context, itemIndex);
 
-		// Transition state
-		await client.intermediate.transitionState(parsedTxId, newState as any);
+		// Get current state for context
+		const txBefore = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
+		const stateBefore = txBefore.state;
+
+		// Transition state with timeout and retry protection
+		await executeSDKOperation(
+			() => client.intermediate.transitionState(parsedTxId, validatedState),
+			'transitionState',
+			context,
+			itemIndex,
+		);
 
 		// Get updated transaction
-		const txAfter = await client.intermediate.getTransaction(parsedTxId);
+		const txAfter = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 
 		return [
 			{
 				json: formatSuccess('transitionState', {
 					transactionId: parsedTxId,
 					previousState: stateBefore,
-					newState: txAfter?.state || newState,
-					message: `State transitioned from ${stateBefore} to ${txAfter?.state || newState}.`,
+					newState: txAfter.state,
+					message: `State transitioned from ${stateBefore} to ${txAfter.state}.`,
 				} as IDataObject),
 			},
 		];
@@ -186,8 +208,13 @@ export async function handleReleaseEscrow(
 			? { txId: escrowId, attestationUID }
 			: undefined;
 
-		// Release escrow
-		await client.intermediate.releaseEscrow(escrowId, attestationParams);
+		// Release escrow with timeout and retry protection
+		await executeSDKOperation(
+			() => client.intermediate.releaseEscrow(escrowId, attestationParams),
+			'releaseEscrow',
+			context,
+			itemIndex,
+		);
 
 		return [
 			{
@@ -219,23 +246,8 @@ export async function handleGetTransaction(
 		const txId = context.getNodeParameter('transactionId', itemIndex) as string;
 		const parsedTxId = parseTransactionId(txId);
 
-		const tx = await client.intermediate.getTransaction(parsedTxId);
-
-		if (!tx) {
-			throw new Error(`Transaction ${parsedTxId} not found`);
-		}
-
-		// Map state string to number
-		const stateMap: Record<string, number> = {
-			INITIATED: 0,
-			QUOTED: 1,
-			COMMITTED: 2,
-			IN_PROGRESS: 3,
-			DELIVERED: 4,
-			SETTLED: 5,
-			DISPUTED: 6,
-			CANCELLED: 7,
-		};
+		// Use helper that includes timeout protection and null check
+		const tx = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 
 		return [
 			{
@@ -243,7 +255,7 @@ export async function handleGetTransaction(
 					'getTransaction',
 					formatTransactionAdvanced({
 						transactionId: parsedTxId,
-						state: stateMap[tx.state] ?? 0,
+						state: stateStringToNumber(tx.state),
 						amount: BigInt(tx.amount),
 						requester: tx.requester,
 						provider: tx.provider,
@@ -276,7 +288,13 @@ export async function handleGetEscrowBalance(
 	try {
 		const escrowId = context.getNodeParameter('escrowId', itemIndex) as string;
 
-		const balance = await client.intermediate.getEscrowBalance(escrowId);
+		// Get escrow balance with timeout and retry protection
+		const balance = await executeSDKOperation(
+			() => client.intermediate.getEscrowBalance(escrowId),
+			'getEscrowBalance',
+			context,
+			itemIndex,
+		);
 
 		return [
 			{
@@ -310,12 +328,17 @@ export async function handleCancelAdvanced(
 		const txId = context.getNodeParameter('transactionId', itemIndex) as string;
 		const parsedTxId = parseTransactionId(txId);
 
-		// Get state before
-		const txBefore = await client.intermediate.getTransaction(parsedTxId);
-		const stateBefore = txBefore?.state || 'UNKNOWN';
+		// Get state before (with timeout protection and null check)
+		const txBefore = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
+		const stateBefore = txBefore.state;
 
-		// Transition to CANCELLED
-		await client.intermediate.transitionState(parsedTxId, 'CANCELLED');
+		// Transition to CANCELLED with timeout and retry protection
+		await executeSDKOperation(
+			() => client.intermediate.transitionState(parsedTxId, 'CANCELLED'),
+			'transitionState',
+			context,
+			itemIndex,
+		);
 
 		return [
 			{

@@ -222,29 +222,7 @@ export function parseTransactionId(txId: string): string {
 
 /**
  * Parse state string to enum value
+ *
+ * @deprecated Use parseStateToEnum from constants.ts instead
  */
-export function parseState(state: string): number {
-	const stateMap: Record<string, number> = {
-		initiated: 0,
-		quoted: 1,
-		committed: 2,
-		in_progress: 3,
-		inprogress: 3,
-		delivered: 4,
-		settled: 5,
-		disputed: 6,
-		cancelled: 7,
-		canceled: 7,
-	};
-
-	const normalized = state.toLowerCase().replace(/[^a-z_]/g, '');
-	const stateValue = stateMap[normalized];
-
-	if (stateValue === undefined) {
-		throw new Error(
-			`Invalid state: "${state}". Valid states: INITIATED, QUOTED, COMMITTED, IN_PROGRESS, DELIVERED, SETTLED, DISPUTED, CANCELLED.`,
-		);
-	}
-
-	return stateValue;
-}
+export { parseStateToEnum as parseState } from './constants';

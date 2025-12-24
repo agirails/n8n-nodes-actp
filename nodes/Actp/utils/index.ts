@@ -10,6 +10,9 @@ export {
 	createClientFromCredentials,
 	clearClientCache,
 	sanitizeError,
+	withTimeout,
+	withRetry,
+	executeWithProtection,
 } from './client.factory';
 
 // Input parsers
@@ -34,3 +37,27 @@ export {
 	formatSuccess,
 	formatError,
 } from './formatters';
+
+// Constants
+export {
+	ACTPState,
+	STATE_NAMES,
+	STATE_DESCRIPTIONS,
+	STATE_STRING_TO_ENUM,
+	VALID_TRANSITION_STATES,
+	PROTOCOL_CONSTANTS,
+	parseStateToEnum,
+	stateStringToNumber,
+	stateNumberToString,
+	isValidTransitionState,
+	type TransitionableState,
+} from './constants';
+
+// Transaction helpers
+export {
+	getTransactionOrThrow,
+	validateTransitionState,
+	sdkStateToNumber,
+	executeSDKOperation,
+	type TransactionData,
+} from './transaction.helpers';

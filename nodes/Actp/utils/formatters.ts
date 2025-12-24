@@ -1,33 +1,10 @@
 import { formatUnits } from 'ethers';
 import type { IDataObject } from 'n8n-workflow';
-
-/**
- * State enum to human-readable string
- */
-const STATE_NAMES: Record<number, string> = {
-	0: 'INITIATED',
-	1: 'QUOTED',
-	2: 'COMMITTED',
-	3: 'IN_PROGRESS',
-	4: 'DELIVERED',
-	5: 'SETTLED',
-	6: 'DISPUTED',
-	7: 'CANCELLED',
-};
-
-/**
- * State descriptions for user understanding
- */
-const STATE_DESCRIPTIONS: Record<number, string> = {
-	0: 'Transaction created, awaiting escrow',
-	1: 'Provider submitted price quote',
-	2: 'Funds locked in escrow, work can begin',
-	3: 'Provider is working on the service',
-	4: 'Work delivered, awaiting confirmation',
-	5: 'Payment released to provider (complete)',
-	6: 'Dispute raised, awaiting resolution',
-	7: 'Transaction cancelled',
-};
+import {
+	ACTPState,
+	STATE_NAMES,
+	STATE_DESCRIPTIONS,
+} from './constants';
 
 /**
  * Format amount from USDC wei (6 decimals) to human-readable string

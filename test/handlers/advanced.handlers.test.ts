@@ -167,9 +167,10 @@ describe('handleTransitionState', () => {
 		expect(result[0].json.message).toContain('DELIVERED');
 	});
 
-	it('should handle unknown previous state', async () => {
+	it('should throw if transaction not found (hardened behavior)', async () => {
+		const txId = '0x' + 'a'.repeat(64);
 		const context = createMockContext({
-			transactionId: '0x' + 'a'.repeat(64),
+			transactionId: txId,
 			newState: 'DELIVERED',
 		});
 		const client = createMockClient({
@@ -179,9 +180,9 @@ describe('handleTransitionState', () => {
 			},
 		});
 
-		const result = await handleTransitionState(context, client as any, 0);
-
-		expect(result[0].json.previousState).toBe('UNKNOWN');
+		await expect(handleTransitionState(context, client as any, 0)).rejects.toThrow(
+			NodeOperationError,
+		);
 	});
 });
 

@@ -185,16 +185,17 @@ export function isApiKey(input: string): boolean {
 		return false;
 	}
 
+	// Security: Bounded quantifiers {min,max} prevent ReDoS attacks
 	const apiKeyPatterns = [
-		/^sk_live_[a-zA-Z0-9]{20,}/,      // Stripe live
-		/^sk_test_[a-zA-Z0-9]{20,}/,      // Stripe test
-		/^pk_live_[a-zA-Z0-9]{20,}/,      // Stripe publishable live
-		/^pk_test_[a-zA-Z0-9]{20,}/,      // Stripe publishable test
-		/^AKIA[A-Z0-9]{16}/,              // AWS access key
-		/^xox[bpas]-[a-zA-Z0-9-]{10,}/,   // Slack tokens
-		/^ghp_[a-zA-Z0-9]{36}/,           // GitHub PAT
-		/^glpat-[a-zA-Z0-9-_]{20}/,       // GitLab PAT
-		/^Bearer\s+[a-zA-Z0-9._-]{20,}/i, // Bearer tokens
+		/^sk_live_[a-zA-Z0-9]{20,100}/,      // Stripe live
+		/^sk_test_[a-zA-Z0-9]{20,100}/,      // Stripe test
+		/^pk_live_[a-zA-Z0-9]{20,100}/,      // Stripe publishable live
+		/^pk_test_[a-zA-Z0-9]{20,100}/,      // Stripe publishable test
+		/^AKIA[A-Z0-9]{16}/,                 // AWS access key
+		/^xox[bpas]-[a-zA-Z0-9-]{10,100}/,   // Slack tokens
+		/^ghp_[a-zA-Z0-9]{36}/,              // GitHub PAT
+		/^glpat-[a-zA-Z0-9-_]{20,100}/,      // GitLab PAT
+		/^Bearer\s+[a-zA-Z0-9._-]{20,200}/i, // Bearer tokens
 	];
 
 	return apiKeyPatterns.some((pattern) => pattern.test(input));
@@ -230,14 +231,15 @@ export function redactSecrets(input: string): string {
 	result = result.replace(/\b[0-9a-fA-F]{64}\b/g, '[REDACTED_KEY]');
 
 	// 3. Redact API keys (common patterns)
-	result = result.replace(/sk_live_[a-zA-Z0-9]{20,}/g, '[REDACTED_API_KEY]');
-	result = result.replace(/sk_test_[a-zA-Z0-9]{20,}/g, '[REDACTED_API_KEY]');
-	result = result.replace(/pk_live_[a-zA-Z0-9]{20,}/g, '[REDACTED_API_KEY]');
-	result = result.replace(/pk_test_[a-zA-Z0-9]{20,}/g, '[REDACTED_API_KEY]');
+	// Security: Bounded quantifiers {min,max} prevent ReDoS attacks
+	result = result.replace(/sk_live_[a-zA-Z0-9]{20,100}/g, '[REDACTED_API_KEY]');
+	result = result.replace(/sk_test_[a-zA-Z0-9]{20,100}/g, '[REDACTED_API_KEY]');
+	result = result.replace(/pk_live_[a-zA-Z0-9]{20,100}/g, '[REDACTED_API_KEY]');
+	result = result.replace(/pk_test_[a-zA-Z0-9]{20,100}/g, '[REDACTED_API_KEY]');
 	result = result.replace(/AKIA[A-Z0-9]{16}/g, '[REDACTED_API_KEY]');
-	result = result.replace(/xox[bpas]-[a-zA-Z0-9-]{10,}/g, '[REDACTED_API_KEY]');
+	result = result.replace(/xox[bpas]-[a-zA-Z0-9-]{10,100}/g, '[REDACTED_API_KEY]');
 	result = result.replace(/ghp_[a-zA-Z0-9]{36}/g, '[REDACTED_API_KEY]');
-	result = result.replace(/glpat-[a-zA-Z0-9-_]{20,}/g, '[REDACTED_API_KEY]');
+	result = result.replace(/glpat-[a-zA-Z0-9-_]{20,100}/g, '[REDACTED_API_KEY]');
 
 	// 4. Redact mnemonic phrases (11-24 word sequences)
 	// This is tricky - we need to find and redact multi-word sequences

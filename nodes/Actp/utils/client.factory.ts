@@ -1,6 +1,11 @@
 import type { IExecuteFunctions, ICredentialDataDecryptedObject } from 'n8n-workflow';
 import { ACTPClient } from '@agirails/sdk';
+import { keccak256, toUtf8Bytes, Wallet as ethersWallet } from 'ethers';
 import { redactSecrets } from './secrets';
+import { PROTOCOL_CONSTANTS } from './constants';
+
+// Re-export for internal use (avoid naming collision with credentials)
+const ethers = { Wallet: ethersWallet };
 
 /**
  * Client cache to avoid re-initialization overhead
@@ -58,9 +63,13 @@ export async function createClientFromCredentials(
 			const privateKey = credentials.privateKey as string;
 			validatePrivateKey(privateKey);
 
+			// Derive address from private key (security: address must match the key)
+			const wallet = new ethers.Wallet(privateKey);
+			const derivedAddress = wallet.address.toLowerCase();
+
 			client = await ACTPClient.create({
 				mode: 'testnet',
-				requesterAddress: '0x0000000000000000000000000000000000000000', // Derived from privateKey
+				requesterAddress: derivedAddress,
 				privateKey,
 				rpcUrl: (credentials.rpcUrl as string) || undefined,
 			});
@@ -71,9 +80,13 @@ export async function createClientFromCredentials(
 			const privateKey = credentials.privateKey as string;
 			validatePrivateKey(privateKey);
 
+			// Derive address from private key (security: address must match the key)
+			const wallet = new ethers.Wallet(privateKey);
+			const derivedAddress = wallet.address.toLowerCase();
+
 			client = await ACTPClient.create({
 				mode: 'mainnet',
-				requesterAddress: '0x0000000000000000000000000000000000000000', // Derived from privateKey
+				requesterAddress: derivedAddress,
 				privateKey,
 				rpcUrl: (credentials.rpcUrl as string) || undefined,
 			});
@@ -109,6 +122,9 @@ function validatePrivateKey(privateKey: string): void {
 
 /**
  * Generate cache key for client (excludes sensitive data from key)
+ *
+ * Security: Uses hash of private key to ensure different wallets get different cache entries
+ * even when using the same RPC URL. The hash is one-way and doesn't expose the key.
  */
 function generateCacheKey(credentials: ICredentialDataDecryptedObject): string {
 	const environment = credentials.environment as string;
@@ -117,8 +133,16 @@ function generateCacheKey(credentials: ICredentialDataDecryptedObject): string {
 		return `mock:${credentials.mockAddress || 'default'}`;
 	}
 
-	// For blockchain modes, use a hash of the address (not the private key!)
-	// The address is derived from private key, so same key = same address
+	// For blockchain modes, hash the private key to create unique cache key
+	// This ensures different wallets don't share cached clients
+	const privateKey = credentials.privateKey as string;
+	if (privateKey) {
+		// Use first 16 chars of keccak256 hash (8 bytes = 64 bits of entropy)
+		const keyHash = keccak256(toUtf8Bytes(privateKey)).slice(0, 18);
+		return `${environment}:${keyHash}:${credentials.rpcUrl || 'default'}`;
+	}
+
+	// Fallback for edge cases (shouldn't happen with proper validation)
 	return `${environment}:${credentials.rpcUrl || 'default'}`;
 }
 
@@ -159,4 +183,99 @@ export function sanitizeError(error: Error | string | unknown): string {
 
 	// Use comprehensive secret redaction
 	return redactSecrets(message);
+}
+
+/**
+ * Execute a promise with timeout
+ *
+ * @param promise - Promise to execute
+ * @param timeoutMs - Timeout in milliseconds (default: 30s)
+ * @param operation - Operation name for error message
+ * @returns Promise result
+ * @throws Error if timeout exceeded
+ */
+export async function withTimeout<T>(
+	promise: Promise<T>,
+	timeoutMs: number = PROTOCOL_CONSTANTS.SDK_TIMEOUT_MS,
+	operation = 'Operation',
+): Promise<T> {
+	const timeout = new Promise<never>((_, reject) =>
+		setTimeout(
+			() => reject(new Error(`${operation} timed out after ${timeoutMs}ms`)),
+			timeoutMs,
+		),
+	);
+	return Promise.race([promise, timeout]);
+}
+
+/**
+ * Check if an error is retryable (transient)
+ */
+function isRetryableError(error: Error): boolean {
+	const message = error.message.toLowerCase();
+	return (
+		message.includes('rate limit') ||
+		message.includes('timeout') ||
+		message.includes('network') ||
+		message.includes('econnreset') ||
+		message.includes('econnrefused') ||
+		message.includes('socket hang up') ||
+		message.includes('fetch failed')
+	);
+}
+
+/**
+ * Execute a function with retry on transient errors
+ *
+ * Uses exponential backoff: 1s, 2s, 4s...
+ *
+ * @param fn - Function to execute
+ * @param maxRetries - Maximum retry attempts (default: 3)
+ * @param baseDelay - Base delay in ms (default: 1000)
+ * @returns Function result
+ * @throws Last error if all retries exhausted
+ */
+export async function withRetry<T>(
+	fn: () => Promise<T>,
+	maxRetries: number = PROTOCOL_CONSTANTS.MAX_RETRY_ATTEMPTS,
+	baseDelay: number = PROTOCOL_CONSTANTS.RETRY_BASE_DELAY_MS,
+): Promise<T> {
+	let lastError: Error | undefined;
+
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		try {
+			return await fn();
+		} catch (error) {
+			lastError = error as Error;
+			const isLastAttempt = attempt === maxRetries - 1;
+
+			if (isLastAttempt || !isRetryableError(lastError)) {
+				throw lastError;
+			}
+
+			// Exponential backoff
+			const delay = baseDelay * Math.pow(2, attempt);
+			await new Promise((resolve) => setTimeout(resolve, delay));
+		}
+	}
+
+	throw lastError;
+}
+
+/**
+ * Execute SDK operation with timeout and retry
+ *
+ * Combines timeout protection and retry logic for robust SDK calls.
+ *
+ * @param fn - Async function to execute
+ * @param operation - Operation name for error messages
+ * @returns Function result
+ */
+export async function executeWithProtection<T>(
+	fn: () => Promise<T>,
+	operation: string,
+): Promise<T> {
+	return withRetry(
+		() => withTimeout(fn(), PROTOCOL_CONSTANTS.SDK_TIMEOUT_MS, operation),
+	);
 }

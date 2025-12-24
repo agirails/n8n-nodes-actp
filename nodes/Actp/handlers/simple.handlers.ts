@@ -9,15 +9,16 @@ import type { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 import { ACTPClient } from '@agirails/sdk';
 import {
-	parseAmount,
 	parseDeadline,
 	parseDisputeWindow,
 	parseAddress,
 	parseTransactionId,
-	formatTransactionSimple,
 	formatStatusCheck,
 	formatSuccess,
 	sanitizeError,
+	stateStringToNumber,
+	getTransactionOrThrow,
+	executeSDKOperation,
 } from '../utils';
 
 /**
@@ -45,13 +46,18 @@ export async function handleSendPayment(
 		const parsedDeadline = parseDeadline(deadlineInput);
 		const parsedDisputeWindow = parseDisputeWindow(disputeWindowInput);
 
-		// Use beginner adapter for simplicity
-		const result = await client.beginner.pay({
-			to: provider,
-			amount: amount,
-			deadline: parsedDeadline,
-			disputeWindow: parsedDisputeWindow,
-		});
+		// Use beginner adapter for simplicity (with timeout and retry protection)
+		const result = await executeSDKOperation(
+			() => client.beginner.pay({
+				to: provider,
+				amount: amount,
+				deadline: parsedDeadline,
+				disputeWindow: parsedDisputeWindow,
+			}),
+			'sendPayment',
+			context,
+			itemIndex,
+		);
 
 		return [
 			{
@@ -89,18 +95,17 @@ export async function handleCheckStatus(
 		const txId = context.getNodeParameter('transactionId', itemIndex) as string;
 		const parsedTxId = parseTransactionId(txId);
 
-		const status = await client.beginner.checkStatus(parsedTxId);
+		const status = await executeSDKOperation(
+			() => client.beginner.checkStatus(parsedTxId),
+			'checkStatus',
+			context,
+			itemIndex,
+		);
 
 		return [
 			{
 				json: formatSuccess('checkStatus', formatStatusCheck({
-					state: status.state === 'INITIATED' ? 0 :
-						status.state === 'QUOTED' ? 1 :
-						status.state === 'COMMITTED' ? 2 :
-						status.state === 'IN_PROGRESS' ? 3 :
-						status.state === 'DELIVERED' ? 4 :
-						status.state === 'SETTLED' ? 5 :
-						status.state === 'DISPUTED' ? 6 : 7,
+					state: stateStringToNumber(status.state),
 					canAccept: status.canAccept,
 					canComplete: status.canComplete,
 					canDispute: status.canDispute,
@@ -131,16 +136,21 @@ export async function handleStartWork(
 		const parsedTxId = parseTransactionId(txId);
 
 		// Transition to IN_PROGRESS
-		await client.intermediate.transitionState(parsedTxId, 'IN_PROGRESS');
+		await executeSDKOperation(
+			() => client.intermediate.transitionState(parsedTxId, 'IN_PROGRESS'),
+			'transitionState',
+			context,
+			itemIndex,
+		);
 
 		// Get updated transaction
-		const tx = await client.intermediate.getTransaction(parsedTxId);
+		const tx = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 
 		return [
 			{
 				json: formatSuccess('startWork', {
 					transactionId: parsedTxId,
-					state: tx?.state || 'IN_PROGRESS',
+					state: tx.state,
 					message: 'Work started. Remember to mark as delivered when complete.',
 				} as IDataObject),
 			},
@@ -169,16 +179,21 @@ export async function handleMarkDelivered(
 		const parsedTxId = parseTransactionId(txId);
 
 		// Transition to DELIVERED
-		await client.intermediate.transitionState(parsedTxId, 'DELIVERED');
+		await executeSDKOperation(
+			() => client.intermediate.transitionState(parsedTxId, 'DELIVERED'),
+			'transitionState',
+			context,
+			itemIndex,
+		);
 
 		// Get updated transaction
-		const tx = await client.intermediate.getTransaction(parsedTxId);
+		const tx = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 
 		return [
 			{
 				json: formatSuccess('markDelivered', {
 					transactionId: parsedTxId,
-					state: tx?.state || 'DELIVERED',
+					state: tx.state,
 					message: 'Work delivered. Waiting for requester to release payment or dispute window to expire.',
 				} as IDataObject),
 			},
@@ -206,14 +221,16 @@ export async function handleReleasePayment(
 		const txId = context.getNodeParameter('transactionId', itemIndex) as string;
 		const parsedTxId = parseTransactionId(txId);
 
-		// Get transaction to find escrow
-		const tx = await client.intermediate.getTransaction(parsedTxId);
-		if (!tx) {
-			throw new Error(`Transaction ${parsedTxId} not found`);
-		}
+		// Get transaction to verify it exists
+		await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 
 		// Release escrow (uses txId as escrowId in mock mode)
-		await client.intermediate.releaseEscrow(parsedTxId);
+		await executeSDKOperation(
+			() => client.intermediate.releaseEscrow(parsedTxId),
+			'releaseEscrow',
+			context,
+			itemIndex,
+		);
 
 		return [
 			{
@@ -249,7 +266,12 @@ export async function handleRaiseDispute(
 		const parsedTxId = parseTransactionId(txId);
 
 		// Transition to DISPUTED
-		await client.intermediate.transitionState(parsedTxId, 'DISPUTED');
+		await executeSDKOperation(
+			() => client.intermediate.transitionState(parsedTxId, 'DISPUTED'),
+			'transitionState',
+			context,
+			itemIndex,
+		);
 
 		return [
 			{
@@ -285,7 +307,12 @@ export async function handleCancelSimple(
 		const parsedTxId = parseTransactionId(txId);
 
 		// Transition to CANCELLED
-		await client.intermediate.transitionState(parsedTxId, 'CANCELLED');
+		await executeSDKOperation(
+			() => client.intermediate.transitionState(parsedTxId, 'CANCELLED'),
+			'transitionState',
+			context,
+			itemIndex,
+		);
 
 		return [
 			{
