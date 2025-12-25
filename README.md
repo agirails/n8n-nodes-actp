@@ -87,4 +87,4 @@ BASE_SEPOLIA_RPC=<rpc_url> BASE_SEPOLIA_PRIVATE_KEY=<key> npm test
 
 ## License
 
-MIT
+Apache-2.0
