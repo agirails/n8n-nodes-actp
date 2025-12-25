@@ -50,7 +50,7 @@ describe('Integration: Full Transaction Flow', () => {
 	describe('Happy Path: Create → Fund → Deliver → Settle', () => {
 		it('should complete a full transaction lifecycle', async () => {
 			// Step 1: Create transaction (INITIATED)
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100', // 100 USDC (SDK converts to wei internally)
 				deadline: Math.floor(Date.now() / 1000) + 86400, // +24h
@@ -61,56 +61,56 @@ describe('Integration: Full Transaction Flow', () => {
 			expect(txId).toMatch(/^0x[a-fA-F0-9]{64}$/);
 
 			// Verify INITIATED state
-			let tx = await client.intermediate.getTransaction(txId);
+			let tx = await client.standard.getTransaction(txId);
 			expect(tx).toBeDefined();
 			expect(tx?.state).toBe('INITIATED');
 
 			// Step 2: Link escrow (auto-transition to COMMITTED)
-			const escrowId = await client.intermediate.linkEscrow(txId);
+			const escrowId = await client.standard.linkEscrow(txId);
 			expect(escrowId).toBeDefined();
 
-			tx = await client.intermediate.getTransaction(txId);
+			tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('COMMITTED');
 
 			// Step 3: Provider starts work (COMMITTED → IN_PROGRESS)
-			await client.intermediate.transitionState(txId, 'IN_PROGRESS');
-			tx = await client.intermediate.getTransaction(txId);
+			await client.standard.transitionState(txId, 'IN_PROGRESS');
+			tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('IN_PROGRESS');
 
 			// Step 4: Provider delivers (IN_PROGRESS → DELIVERED)
-			await client.intermediate.transitionState(txId, 'DELIVERED');
-			tx = await client.intermediate.getTransaction(txId);
+			await client.standard.transitionState(txId, 'DELIVERED');
+			tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('DELIVERED');
 
 			// Step 5: Wait for dispute window to expire
 			await advanceTime(client, 3601); // Advance past 1 hour dispute window
 
 			// Step 6: Release escrow (DELIVERED → SETTLED)
-			await client.intermediate.releaseEscrow(escrowId);
-			tx = await client.intermediate.getTransaction(txId);
+			await client.standard.releaseEscrow(escrowId);
+			tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('SETTLED');
 		});
 
 		it('should skip IN_PROGRESS and go directly to DELIVERED', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '50', // 50 USDC
 				deadline: Math.floor(Date.now() / 1000) + 86400,
 			});
 
-			await client.intermediate.linkEscrow(txId);
+			await client.standard.linkEscrow(txId);
 
 			// Skip IN_PROGRESS, go directly to DELIVERED
-			await client.intermediate.transitionState(txId, 'DELIVERED');
+			await client.standard.transitionState(txId, 'DELIVERED');
 
-			const tx = await client.intermediate.getTransaction(txId);
+			const tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('DELIVERED');
 		});
 	});
 
-	describe('Beginner API: Pay and Check', () => {
+	describe('Basic API: Pay and Check', () => {
 		it('should create funded transaction with pay()', async () => {
-			const result = await client.beginner.pay({
+			const result = await client.basic.pay({
 				to: PROVIDER,
 				amount: '50',
 				deadline: '+12h',
@@ -122,21 +122,21 @@ describe('Integration: Full Transaction Flow', () => {
 			expect(result.state).toBe('COMMITTED');
 
 			// Check status
-			const status = await client.beginner.checkStatus(result.txId);
+			const status = await client.basic.checkStatus(result.txId);
 			expect(status.state).toBe('COMMITTED');
 		});
 
-		it('should complete work using intermediate API after pay()', async () => {
-			// Pay with beginner API
-			const payResult = await client.beginner.pay({
+		it('should complete work using standard API after pay()', async () => {
+			// Pay with basic API
+			const payResult = await client.basic.pay({
 				to: PROVIDER,
 				amount: '25',
 			});
 
-			// Complete using intermediate API (transitions to DELIVERED)
-			await client.intermediate.transitionState(payResult.txId, 'DELIVERED');
+			// Complete using standard API (transitions to DELIVERED)
+			await client.standard.transitionState(payResult.txId, 'DELIVERED');
 
-			const status = await client.beginner.checkStatus(payResult.txId);
+			const status = await client.basic.checkStatus(payResult.txId);
 			expect(status.state).toBe('DELIVERED');
 		});
 	});
@@ -144,32 +144,32 @@ describe('Integration: Full Transaction Flow', () => {
 	describe('Cancellation Flow', () => {
 		it('should cancel transaction before delivery', async () => {
 			// Create and fund
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '75',
 			});
-			await client.intermediate.linkEscrow(txId);
+			await client.standard.linkEscrow(txId);
 
-			let tx = await client.intermediate.getTransaction(txId);
+			let tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('COMMITTED');
 
 			// Cancel
-			await client.intermediate.transitionState(txId, 'CANCELLED');
+			await client.standard.transitionState(txId, 'CANCELLED');
 
-			tx = await client.intermediate.getTransaction(txId);
+			tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('CANCELLED');
 		});
 
 		it('should cancel from INITIATED state (before escrow)', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100',
 			});
 
 			// Cancel before linking escrow
-			await client.intermediate.transitionState(txId, 'CANCELLED');
+			await client.standard.transitionState(txId, 'CANCELLED');
 
-			const tx = await client.intermediate.getTransaction(txId);
+			const tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('CANCELLED');
 		});
 	});
@@ -177,27 +177,27 @@ describe('Integration: Full Transaction Flow', () => {
 	describe('Dispute Flow', () => {
 		it('should raise dispute after delivery', async () => {
 			// Create, fund, and deliver
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '200',
 			});
-			await client.intermediate.linkEscrow(txId);
-			await client.intermediate.transitionState(txId, 'DELIVERED');
+			await client.standard.linkEscrow(txId);
+			await client.standard.transitionState(txId, 'DELIVERED');
 
-			let tx = await client.intermediate.getTransaction(txId);
+			let tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('DELIVERED');
 
 			// Raise dispute
-			await client.intermediate.transitionState(txId, 'DISPUTED');
+			await client.standard.transitionState(txId, 'DISPUTED');
 
-			tx = await client.intermediate.getTransaction(txId);
+			tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('DISPUTED');
 		});
 	});
 
 	describe('Edge Cases', () => {
 		it('should handle minimum amount ($0.05)', async () => {
-			const result = await client.beginner.pay({
+			const result = await client.basic.pay({
 				to: PROVIDER,
 				amount: '0.05',
 			});
@@ -210,7 +210,7 @@ describe('Integration: Full Transaction Flow', () => {
 			// Mint extra for large transaction
 			await client.mintTokens(REQUESTER, '1000000000000000'); // 1B USDC
 
-			const result = await client.beginner.pay({
+			const result = await client.basic.pay({
 				to: PROVIDER,
 				amount: '1000000',
 			});
@@ -220,7 +220,7 @@ describe('Integration: Full Transaction Flow', () => {
 
 		it('should fail on self-payment', async () => {
 			await expect(
-				client.beginner.pay({
+				client.basic.pay({
 					to: REQUESTER, // Same as requester
 					amount: '100',
 				}),
@@ -230,7 +230,7 @@ describe('Integration: Full Transaction Flow', () => {
 		it('should fail on insufficient balance', async () => {
 			// Try to pay more than minted balance
 			await expect(
-				client.beginner.pay({
+				client.basic.pay({
 					to: PROVIDER,
 					amount: '999999999', // Way more than 10,000 USDC
 				}),
@@ -258,113 +258,113 @@ describe('Integration: State Machine Validation', () => {
 
 	describe('Valid State Transitions', () => {
 		it('INITIATED → COMMITTED (via linkEscrow)', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100',
 			});
 
-			let tx = await client.intermediate.getTransaction(txId);
+			let tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('INITIATED');
 
-			await client.intermediate.linkEscrow(txId);
+			await client.standard.linkEscrow(txId);
 
-			tx = await client.intermediate.getTransaction(txId);
+			tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('COMMITTED');
 		});
 
 		it('COMMITTED → IN_PROGRESS → DELIVERED', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100',
 			});
-			await client.intermediate.linkEscrow(txId);
+			await client.standard.linkEscrow(txId);
 
-			await client.intermediate.transitionState(txId, 'IN_PROGRESS');
-			let tx = await client.intermediate.getTransaction(txId);
+			await client.standard.transitionState(txId, 'IN_PROGRESS');
+			let tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('IN_PROGRESS');
 
-			await client.intermediate.transitionState(txId, 'DELIVERED');
-			tx = await client.intermediate.getTransaction(txId);
+			await client.standard.transitionState(txId, 'DELIVERED');
+			tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('DELIVERED');
 		});
 
 		it('DELIVERED → DISPUTED', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100',
 			});
-			await client.intermediate.linkEscrow(txId);
-			await client.intermediate.transitionState(txId, 'DELIVERED');
+			await client.standard.linkEscrow(txId);
+			await client.standard.transitionState(txId, 'DELIVERED');
 
-			await client.intermediate.transitionState(txId, 'DISPUTED');
+			await client.standard.transitionState(txId, 'DISPUTED');
 
-			const tx = await client.intermediate.getTransaction(txId);
+			const tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('DISPUTED');
 		});
 	});
 
 	describe('Invalid State Transitions', () => {
 		it('should reject INITIATED → DELIVERED (must go through COMMITTED)', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100',
 			});
 
 			await expect(
-				client.intermediate.transitionState(txId, 'DELIVERED'),
+				client.standard.transitionState(txId, 'DELIVERED'),
 			).rejects.toThrow(/invalid.*state/i);
 		});
 
 		it('should reject COMMITTED → SETTLED (must go through DELIVERED)', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100',
 			});
-			await client.intermediate.linkEscrow(txId);
+			await client.standard.linkEscrow(txId);
 
 			await expect(
-				client.intermediate.transitionState(txId, 'SETTLED'),
+				client.standard.transitionState(txId, 'SETTLED'),
 			).rejects.toThrow(/invalid.*state/i);
 		});
 	});
 
 	describe('Terminal States', () => {
 		it('SETTLED should be terminal', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100',
 				disputeWindow: 3600, // Minimum allowed dispute window (1 hour)
 			});
-			const escrowId = await client.intermediate.linkEscrow(txId);
-			await client.intermediate.transitionState(txId, 'DELIVERED');
+			const escrowId = await client.standard.linkEscrow(txId);
+			await client.standard.transitionState(txId, 'DELIVERED');
 
 			// Wait for dispute window to expire
 			await advanceTime(client, 3601);
-			await client.intermediate.releaseEscrow(escrowId);
+			await client.standard.releaseEscrow(escrowId);
 
-			const tx = await client.intermediate.getTransaction(txId);
+			const tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('SETTLED');
 
 			// Attempting further transitions should fail
 			await expect(
-				client.intermediate.transitionState(txId, 'DELIVERED'),
+				client.standard.transitionState(txId, 'DELIVERED'),
 			).rejects.toThrow();
 		});
 
 		it('CANCELLED should be terminal', async () => {
-			const txId = await client.intermediate.createTransaction({
+			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '100',
 			});
-			await client.intermediate.linkEscrow(txId);
-			await client.intermediate.transitionState(txId, 'CANCELLED');
+			await client.standard.linkEscrow(txId);
+			await client.standard.transitionState(txId, 'CANCELLED');
 
-			const tx = await client.intermediate.getTransaction(txId);
+			const tx = await client.standard.getTransaction(txId);
 			expect(tx?.state).toBe('CANCELLED');
 
 			// Attempting further transitions should fail
 			await expect(
-				client.intermediate.transitionState(txId, 'DELIVERED'),
+				client.standard.transitionState(txId, 'DELIVERED'),
 			).rejects.toThrow();
 		});
 	});
@@ -382,8 +382,8 @@ describe('Integration: Client Factory', () => {
 		});
 
 		expect(client).toBeDefined();
-		expect(client.beginner).toBeDefined();
-		expect(client.intermediate).toBeDefined();
+		expect(client.basic).toBeDefined();
+		expect(client.standard).toBeDefined();
 	});
 
 	it('should cache clients', async () => {

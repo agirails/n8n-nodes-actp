@@ -33,7 +33,7 @@ const createMockClient = (overrides: Record<string, any> = {}) => {
 	const defaultEscrowId = '0x' + 'b'.repeat(64);
 
 	return {
-		intermediate: {
+		standard: {
 			createTransaction: jest.fn().mockResolvedValue(defaultTxId),
 			linkEscrow: jest.fn().mockResolvedValue(defaultEscrowId),
 			transitionState: jest.fn().mockResolvedValue(undefined),
@@ -50,7 +50,7 @@ const createMockClient = (overrides: Record<string, any> = {}) => {
 				escrowId: defaultEscrowId,
 			}),
 			getEscrowBalance: jest.fn().mockResolvedValue('100.00 USDC'),
-			...overrides.intermediate,
+			...overrides.standard,
 		},
 		...overrides,
 	};
@@ -90,7 +90,7 @@ describe('handleCreateTransaction', () => {
 
 		await handleCreateTransaction(context, client as any, 0);
 
-		expect(client.intermediate.createTransaction).toHaveBeenCalledWith(
+		expect(client.standard.createTransaction).toHaveBeenCalledWith(
 			expect.objectContaining({
 				provider,
 				amount: '50',
@@ -134,7 +134,7 @@ describe('handleLinkEscrow', () => {
 
 		const result = await handleLinkEscrow(context, client as any, 0);
 
-		expect(client.intermediate.linkEscrow).toHaveBeenCalledWith(txId);
+		expect(client.standard.linkEscrow).toHaveBeenCalledWith(txId);
 		expect(result[0].json.success).toBe(true);
 		expect(result[0].json.escrowId).toBe('0x' + 'b'.repeat(64));
 		expect(result[0].json.state).toBe('COMMITTED');
@@ -149,7 +149,7 @@ describe('handleTransitionState', () => {
 			newState: 'DELIVERED',
 		});
 		const client = createMockClient({
-			intermediate: {
+			standard: {
 				getTransaction: jest
 					.fn()
 					.mockResolvedValueOnce({ state: 'COMMITTED' })
@@ -160,7 +160,7 @@ describe('handleTransitionState', () => {
 
 		const result = await handleTransitionState(context, client as any, 0);
 
-		expect(client.intermediate.transitionState).toHaveBeenCalledWith(txId, 'DELIVERED');
+		expect(client.standard.transitionState).toHaveBeenCalledWith(txId, 'DELIVERED');
 		expect(result[0].json.previousState).toBe('COMMITTED');
 		expect(result[0].json.newState).toBe('DELIVERED');
 		expect(result[0].json.message).toContain('COMMITTED');
@@ -174,7 +174,7 @@ describe('handleTransitionState', () => {
 			newState: 'DELIVERED',
 		});
 		const client = createMockClient({
-			intermediate: {
+			standard: {
 				getTransaction: jest.fn().mockResolvedValue(null),
 				transitionState: jest.fn().mockResolvedValue(undefined),
 			},
@@ -197,7 +197,7 @@ describe('handleReleaseEscrow', () => {
 
 		const result = await handleReleaseEscrow(context, client as any, 0);
 
-		expect(client.intermediate.releaseEscrow).toHaveBeenCalledWith(escrowId, undefined);
+		expect(client.standard.releaseEscrow).toHaveBeenCalledWith(escrowId, undefined);
 		expect(result[0].json.state).toBe('SETTLED');
 	});
 
@@ -212,7 +212,7 @@ describe('handleReleaseEscrow', () => {
 
 		const result = await handleReleaseEscrow(context, client as any, 0);
 
-		expect(client.intermediate.releaseEscrow).toHaveBeenCalledWith(escrowId, {
+		expect(client.standard.releaseEscrow).toHaveBeenCalledWith(escrowId, {
 			txId: escrowId,
 			attestationUID,
 		});
@@ -242,7 +242,7 @@ describe('handleGetTransaction', () => {
 			transactionId: '0x' + 'a'.repeat(64),
 		});
 		const client = createMockClient({
-			intermediate: {
+			standard: {
 				getTransaction: jest.fn().mockResolvedValue(null),
 			},
 		});
@@ -261,7 +261,7 @@ describe('handleGetEscrowBalance', () => {
 
 		const result = await handleGetEscrowBalance(context, client as any, 0);
 
-		expect(client.intermediate.getEscrowBalance).toHaveBeenCalledWith(escrowId);
+		expect(client.standard.getEscrowBalance).toHaveBeenCalledWith(escrowId);
 		expect(result[0].json.escrowId).toBe(escrowId);
 		expect(result[0].json.balance).toBe('100.00 USDC');
 	});
@@ -274,7 +274,7 @@ describe('handleCancelAdvanced', () => {
 			transactionId: txId,
 		});
 		const client = createMockClient({
-			intermediate: {
+			standard: {
 				getTransaction: jest.fn().mockResolvedValue({ state: 'COMMITTED' }),
 				transitionState: jest.fn().mockResolvedValue(undefined),
 			},
@@ -282,7 +282,7 @@ describe('handleCancelAdvanced', () => {
 
 		const result = await handleCancelAdvanced(context, client as any, 0);
 
-		expect(client.intermediate.transitionState).toHaveBeenCalledWith(txId, 'CANCELLED');
+		expect(client.standard.transitionState).toHaveBeenCalledWith(txId, 'CANCELLED');
 		expect(result[0].json.previousState).toBe('COMMITTED');
 		expect(result[0].json.newState).toBe('CANCELLED');
 	});

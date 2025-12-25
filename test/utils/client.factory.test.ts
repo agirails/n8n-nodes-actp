@@ -17,8 +17,8 @@ jest.mock('@agirails/sdk', () => ({
 			// Store config for inspection
 			const mockClient = {
 				_config: config, // Internal for test inspection
-				beginner: { pay: jest.fn(), checkStatus: jest.fn() },
-				intermediate: {
+				basic: { pay: jest.fn(), checkStatus: jest.fn() },
+				standard: {
 					createTransaction: jest.fn(),
 					linkEscrow: jest.fn(),
 					transitionState: jest.fn(),

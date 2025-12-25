@@ -1,7 +1,7 @@
 /**
  * Advanced Mode Operation Handlers
  *
- * Full control over the ACTP protocol using IntermediateAdapter API.
+ * Full control over the ACTP protocol using StandardAdapter API.
  * For users who need fine-grained control over the transaction lifecycle.
  */
 
@@ -53,7 +53,7 @@ export async function handleCreateTransaction(
 
 		// Create transaction with timeout and retry protection
 		const txId = await executeSDKOperation(
-			() => client.intermediate.createTransaction({
+			() => client.standard.createTransaction({
 				provider: parsedProvider,
 				amount,
 				deadline: parsedDeadline,
@@ -108,7 +108,7 @@ export async function handleLinkEscrow(
 
 		// Link escrow with timeout and retry protection
 		const escrowId = await executeSDKOperation(
-			() => client.intermediate.linkEscrow(parsedTxId),
+			() => client.standard.linkEscrow(parsedTxId),
 			'linkEscrow',
 			context,
 			itemIndex,
@@ -160,7 +160,7 @@ export async function handleTransitionState(
 
 		// Transition state with timeout and retry protection
 		await executeSDKOperation(
-			() => client.intermediate.transitionState(parsedTxId, validatedState),
+			() => client.standard.transitionState(parsedTxId, validatedState),
 			'transitionState',
 			context,
 			itemIndex,
@@ -210,7 +210,7 @@ export async function handleReleaseEscrow(
 
 		// Release escrow with timeout and retry protection
 		await executeSDKOperation(
-			() => client.intermediate.releaseEscrow(escrowId, attestationParams),
+			() => client.standard.releaseEscrow(escrowId, attestationParams),
 			'releaseEscrow',
 			context,
 			itemIndex,
@@ -290,7 +290,7 @@ export async function handleGetEscrowBalance(
 
 		// Get escrow balance with timeout and retry protection
 		const balance = await executeSDKOperation(
-			() => client.intermediate.getEscrowBalance(escrowId),
+			() => client.standard.getEscrowBalance(escrowId),
 			'getEscrowBalance',
 			context,
 			itemIndex,
@@ -334,7 +334,7 @@ export async function handleCancelAdvanced(
 
 		// Transition to CANCELLED with timeout and retry protection
 		await executeSDKOperation(
-			() => client.intermediate.transitionState(parsedTxId, 'CANCELLED'),
+			() => client.standard.transitionState(parsedTxId, 'CANCELLED'),
 			'transitionState',
 			context,
 			itemIndex,

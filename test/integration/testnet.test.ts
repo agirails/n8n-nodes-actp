@@ -79,9 +79,9 @@ describeTestnet('Integration: Base Sepolia Testnet', () => {
 		it('should have initialized client successfully', async () => {
 			// Verify client is properly initialized
 			expect(client).toBeDefined();
-			expect(client.beginner).toBeDefined();
-			expect(client.intermediate).toBeDefined();
-			logTestStatus('client-init', 'PASS', 'Client has beginner and intermediate APIs');
+			expect(client.basic).toBeDefined();
+			expect(client.standard).toBeDefined();
+			logTestStatus('client-init', 'PASS', 'Client has basic and standard APIs');
 		}, 10000);
 
 		it('should have a valid wallet address', async () => {
@@ -115,24 +115,24 @@ describeTestnet('Integration: Base Sepolia Testnet', () => {
 	});
 
 	describe('Basic API Functionality', () => {
-		it('should have beginner.pay method', () => {
-			expect(typeof client.beginner.pay).toBe('function');
-			logTestStatus('beginner-api', 'PASS', 'pay() method available');
+		it('should have basic.pay method', () => {
+			expect(typeof client.basic.pay).toBe('function');
+			logTestStatus('basic-api', 'PASS', 'pay() method available');
 		});
 
-		it('should have beginner.checkStatus method', () => {
-			expect(typeof client.beginner.checkStatus).toBe('function');
-			logTestStatus('beginner-api', 'PASS', 'checkStatus() method available');
+		it('should have basic.checkStatus method', () => {
+			expect(typeof client.basic.checkStatus).toBe('function');
+			logTestStatus('basic-api', 'PASS', 'checkStatus() method available');
 		});
 
-		it('should have intermediate.createTransaction method', () => {
-			expect(typeof client.intermediate.createTransaction).toBe('function');
-			logTestStatus('intermediate-api', 'PASS', 'createTransaction() method available');
+		it('should have standard.createTransaction method', () => {
+			expect(typeof client.standard.createTransaction).toBe('function');
+			logTestStatus('standard-api', 'PASS', 'createTransaction() method available');
 		});
 
-		it('should have intermediate.transitionState method', () => {
-			expect(typeof client.intermediate.transitionState).toBe('function');
-			logTestStatus('intermediate-api', 'PASS', 'transitionState() method available');
+		it('should have standard.transitionState method', () => {
+			expect(typeof client.standard.transitionState).toBe('function');
+			logTestStatus('standard-api', 'PASS', 'transitionState() method available');
 		});
 	});
 });
@@ -205,8 +205,8 @@ describe('Integration: Client Factory - Testnet Mode', () => {
 		});
 
 		expect(client).toBeDefined();
-		expect(client.beginner).toBeDefined();
-		expect(client.intermediate).toBeDefined();
+		expect(client.basic).toBeDefined();
+		expect(client.standard).toBeDefined();
 	}, 30000);
 });
 
@@ -239,7 +239,7 @@ describe('Integration: Smoke Tests (Mock Mode)', () => {
 
 	it('should complete pay → checkStatus → deliver flow', async () => {
 		// Pay
-		const payResult = await client.beginner.pay({
+		const payResult = await client.basic.pay({
 			to: '0x2222222222222222222222222222222222222222',
 			amount: '10', // $10 USDC
 		});
@@ -248,20 +248,20 @@ describe('Integration: Smoke Tests (Mock Mode)', () => {
 		expect(payResult.state).toBe('COMMITTED');
 
 		// Check status
-		const status = await client.beginner.checkStatus(payResult.txId);
+		const status = await client.basic.checkStatus(payResult.txId);
 		expect(status.state).toBe('COMMITTED');
 
 		// Deliver
-		await client.intermediate.transitionState(payResult.txId, 'DELIVERED');
+		await client.standard.transitionState(payResult.txId, 'DELIVERED');
 
-		const finalStatus = await client.beginner.checkStatus(payResult.txId);
+		const finalStatus = await client.basic.checkStatus(payResult.txId);
 		expect(finalStatus.state).toBe('DELIVERED');
 	});
 
 	it('should handle error cases gracefully', async () => {
 		// Try to pay with insufficient balance
 		await expect(
-			client.beginner.pay({
+			client.basic.pay({
 				to: '0x2222222222222222222222222222222222222222',
 				amount: '999999999999', // Way more than minted
 			}),
@@ -270,7 +270,7 @@ describe('Integration: Smoke Tests (Mock Mode)', () => {
 
 	it('should reject self-payment', async () => {
 		await expect(
-			client.beginner.pay({
+			client.basic.pay({
 				to: '0x1111111111111111111111111111111111111111', // Same as requester
 				amount: '10',
 			}),

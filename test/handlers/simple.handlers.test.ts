@@ -30,7 +30,7 @@ const createMockContext = (params: Record<string, any> = {}): IExecuteFunctions 
 // Mock ACTP Client
 const createMockClient = (overrides: Record<string, any> = {}) => {
 	return {
-		beginner: {
+		basic: {
 			pay: jest.fn().mockResolvedValue({
 				txId: '0x' + 'a'.repeat(64),
 				provider: '0x' + '2'.repeat(40),
@@ -45,9 +45,9 @@ const createMockClient = (overrides: Record<string, any> = {}) => {
 				canComplete: true,
 				canDispute: false,
 			}),
-			...overrides.beginner,
+			...overrides.basic,
 		},
-		intermediate: {
+		standard: {
 			transitionState: jest.fn().mockResolvedValue(undefined),
 			getTransaction: jest.fn().mockResolvedValue({
 				state: 'IN_PROGRESS',
@@ -57,7 +57,7 @@ const createMockClient = (overrides: Record<string, any> = {}) => {
 				deadline: 1700000000,
 			}),
 			releaseEscrow: jest.fn().mockResolvedValue(undefined),
-			...overrides.intermediate,
+			...overrides.standard,
 		},
 		...overrides,
 	};
@@ -82,7 +82,7 @@ describe('handleSendPayment', () => {
 		expect(result[0].json.amount).toBe('$100.00 USDC');
 	});
 
-	it('should call beginner.pay with correct params', async () => {
+	it('should call basic.pay with correct params', async () => {
 		const context = createMockContext({
 			to: '0x' + '2'.repeat(40),
 			amount: '50.25',
@@ -93,7 +93,7 @@ describe('handleSendPayment', () => {
 
 		await handleSendPayment(context, client as any, 0);
 
-		expect(client.beginner.pay).toHaveBeenCalledWith(
+		expect(client.basic.pay).toHaveBeenCalledWith(
 			expect.objectContaining({
 				to: '0x' + '2'.repeat(40),
 				amount: '50.25',
@@ -119,7 +119,7 @@ describe('handleSendPayment', () => {
 			amount: '100',
 		});
 		const client = createMockClient({
-			beginner: {
+			basic: {
 				pay: jest.fn().mockRejectedValue(new Error('Insufficient balance')),
 			},
 		});
@@ -167,7 +167,7 @@ describe('handleStartWork', () => {
 
 		const result = await handleStartWork(context, client as any, 0);
 
-		expect(client.intermediate.transitionState).toHaveBeenCalledWith(txId, 'IN_PROGRESS');
+		expect(client.standard.transitionState).toHaveBeenCalledWith(txId, 'IN_PROGRESS');
 		expect(result[0].json.success).toBe(true);
 		expect(result[0].json.state).toBe('IN_PROGRESS');
 	});
@@ -180,7 +180,7 @@ describe('handleMarkDelivered', () => {
 			transactionId: txId,
 		});
 		const client = createMockClient({
-			intermediate: {
+			standard: {
 				transitionState: jest.fn().mockResolvedValue(undefined),
 				getTransaction: jest.fn().mockResolvedValue({ state: 'DELIVERED' }),
 			},
@@ -188,7 +188,7 @@ describe('handleMarkDelivered', () => {
 
 		const result = await handleMarkDelivered(context, client as any, 0);
 
-		expect(client.intermediate.transitionState).toHaveBeenCalledWith(txId, 'DELIVERED');
+		expect(client.standard.transitionState).toHaveBeenCalledWith(txId, 'DELIVERED');
 		expect(result[0].json.state).toBe('DELIVERED');
 	});
 });
@@ -200,7 +200,7 @@ describe('handleReleasePayment', () => {
 			transactionId: txId,
 		});
 		const client = createMockClient({
-			intermediate: {
+			standard: {
 				getTransaction: jest.fn().mockResolvedValue({
 					state: 'DELIVERED',
 					escrowId: txId,
@@ -211,7 +211,7 @@ describe('handleReleasePayment', () => {
 
 		const result = await handleReleasePayment(context, client as any, 0);
 
-		expect(client.intermediate.releaseEscrow).toHaveBeenCalledWith(txId);
+		expect(client.standard.releaseEscrow).toHaveBeenCalledWith(txId);
 		expect(result[0].json.state).toBe('SETTLED');
 	});
 
@@ -220,7 +220,7 @@ describe('handleReleasePayment', () => {
 			transactionId: '0x' + 'a'.repeat(64),
 		});
 		const client = createMockClient({
-			intermediate: {
+			standard: {
 				getTransaction: jest.fn().mockResolvedValue(null),
 			},
 		});
@@ -240,7 +240,7 @@ describe('handleRaiseDispute', () => {
 
 		const result = await handleRaiseDispute(context, client as any, 0);
 
-		expect(client.intermediate.transitionState).toHaveBeenCalledWith(txId, 'DISPUTED');
+		expect(client.standard.transitionState).toHaveBeenCalledWith(txId, 'DISPUTED');
 		expect(result[0].json.state).toBe('DISPUTED');
 		expect(result[0].json.reason).toBe('Work not delivered as expected');
 	});
@@ -268,7 +268,7 @@ describe('handleCancelSimple', () => {
 
 		const result = await handleCancelSimple(context, client as any, 0);
 
-		expect(client.intermediate.transitionState).toHaveBeenCalledWith(txId, 'CANCELLED');
+		expect(client.standard.transitionState).toHaveBeenCalledWith(txId, 'CANCELLED');
 		expect(result[0].json.state).toBe('CANCELLED');
 	});
 });

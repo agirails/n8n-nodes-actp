@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-actp",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "AGIRAILS ACTP - Agent Commerce Transaction Protocol for n8n. Add payment rails to any workflow.",
   "keywords": [
     "n8n-community-node-package",

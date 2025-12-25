@@ -47,7 +47,7 @@ export async function getTransactionOrThrow(
 	itemIndex: number,
 ): Promise<TransactionData> {
 	const tx = await executeWithProtection(
-		() => client.intermediate.getTransaction(txId),
+		() => client.standard.getTransaction(txId),
 		'getTransaction',
 	);
 

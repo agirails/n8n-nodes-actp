@@ -1,7 +1,7 @@
 /**
  * Simple Mode Operation Handlers
  *
- * User-friendly operations using the BeginnerAdapter API.
+ * User-friendly operations using the BasicAdapter API.
  * Designed for users who want "just make it work" simplicity.
  */
 
@@ -24,7 +24,7 @@ import {
 /**
  * Send Payment - Create and fund a transaction in one step
  *
- * Uses beginner.pay() for maximum simplicity.
+ * Uses basic.pay() for maximum simplicity.
  * Automatically links escrow after creation.
  */
 export async function handleSendPayment(
@@ -46,9 +46,9 @@ export async function handleSendPayment(
 		const parsedDeadline = parseDeadline(deadlineInput);
 		const parsedDisputeWindow = parseDisputeWindow(disputeWindowInput);
 
-		// Use beginner adapter for simplicity (with timeout and retry protection)
+		// Use basic adapter for simplicity (with timeout and retry protection)
 		const result = await executeSDKOperation(
-			() => client.beginner.pay({
+			() => client.basic.pay({
 				to: provider,
 				amount: amount,
 				deadline: parsedDeadline,
@@ -84,7 +84,7 @@ export async function handleSendPayment(
 /**
  * Check Status - Get transaction status with action hints
  *
- * Uses beginner.checkStatus() for user-friendly output.
+ * Uses basic.checkStatus() for user-friendly output.
  */
 export async function handleCheckStatus(
 	context: IExecuteFunctions,
@@ -96,7 +96,7 @@ export async function handleCheckStatus(
 		const parsedTxId = parseTransactionId(txId);
 
 		const status = await executeSDKOperation(
-			() => client.beginner.checkStatus(parsedTxId),
+			() => client.basic.checkStatus(parsedTxId),
 			'checkStatus',
 			context,
 			itemIndex,
@@ -137,7 +137,7 @@ export async function handleStartWork(
 
 		// Transition to IN_PROGRESS
 		await executeSDKOperation(
-			() => client.intermediate.transitionState(parsedTxId, 'IN_PROGRESS'),
+			() => client.standard.transitionState(parsedTxId, 'IN_PROGRESS'),
 			'transitionState',
 			context,
 			itemIndex,
@@ -180,7 +180,7 @@ export async function handleMarkDelivered(
 
 		// Transition to DELIVERED
 		await executeSDKOperation(
-			() => client.intermediate.transitionState(parsedTxId, 'DELIVERED'),
+			() => client.standard.transitionState(parsedTxId, 'DELIVERED'),
 			'transitionState',
 			context,
 			itemIndex,
@@ -226,7 +226,7 @@ export async function handleReleasePayment(
 
 		// Release escrow (uses txId as escrowId in mock mode)
 		await executeSDKOperation(
-			() => client.intermediate.releaseEscrow(parsedTxId),
+			() => client.standard.releaseEscrow(parsedTxId),
 			'releaseEscrow',
 			context,
 			itemIndex,
@@ -267,7 +267,7 @@ export async function handleRaiseDispute(
 
 		// Transition to DISPUTED
 		await executeSDKOperation(
-			() => client.intermediate.transitionState(parsedTxId, 'DISPUTED'),
+			() => client.standard.transitionState(parsedTxId, 'DISPUTED'),
 			'transitionState',
 			context,
 			itemIndex,
@@ -308,7 +308,7 @@ export async function handleCancelSimple(
 
 		// Transition to CANCELLED
 		await executeSDKOperation(
-			() => client.intermediate.transitionState(parsedTxId, 'CANCELLED'),
+			() => client.standard.transitionState(parsedTxId, 'CANCELLED'),
 			'transitionState',
 			context,
 			itemIndex,
