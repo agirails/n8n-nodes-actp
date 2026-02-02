@@ -91,7 +91,7 @@ describe('Integration: Full Transaction Flow', () => {
 			expect(tx?.state).toBe('SETTLED');
 		});
 
-		it('should skip IN_PROGRESS and go directly to DELIVERED', async () => {
+		it('should transition through IN_PROGRESS to DELIVERED', async () => {
 			const txId = await client.standard.createTransaction({
 				provider: PROVIDER,
 				amount: '50', // 50 USDC
@@ -100,7 +100,8 @@ describe('Integration: Full Transaction Flow', () => {
 
 			await client.standard.linkEscrow(txId);
 
-			// Skip IN_PROGRESS, go directly to DELIVERED
+			// AUDIT FIX: Must go through IN_PROGRESS before DELIVERED
+			await client.standard.transitionState(txId, 'IN_PROGRESS');
 			await client.standard.transitionState(txId, 'DELIVERED');
 
 			const tx = await client.standard.getTransaction(txId);
@@ -133,7 +134,8 @@ describe('Integration: Full Transaction Flow', () => {
 				amount: '25',
 			});
 
-			// Complete using standard API (transitions to DELIVERED)
+			// Complete using standard API (must go through IN_PROGRESS first per audit fix)
+			await client.standard.transitionState(payResult.txId, 'IN_PROGRESS');
 			await client.standard.transitionState(payResult.txId, 'DELIVERED');
 
 			const status = await client.basic.checkStatus(payResult.txId);
@@ -182,6 +184,8 @@ describe('Integration: Full Transaction Flow', () => {
 				amount: '200',
 			});
 			await client.standard.linkEscrow(txId);
+			// AUDIT FIX: Must go through IN_PROGRESS before DELIVERED
+			await client.standard.transitionState(txId, 'IN_PROGRESS');
 			await client.standard.transitionState(txId, 'DELIVERED');
 
 			let tx = await client.standard.getTransaction(txId);
@@ -294,6 +298,8 @@ describe('Integration: State Machine Validation', () => {
 				amount: '100',
 			});
 			await client.standard.linkEscrow(txId);
+			// AUDIT FIX: Must go through IN_PROGRESS before DELIVERED
+			await client.standard.transitionState(txId, 'IN_PROGRESS');
 			await client.standard.transitionState(txId, 'DELIVERED');
 
 			await client.standard.transitionState(txId, 'DISPUTED');
@@ -336,6 +342,8 @@ describe('Integration: State Machine Validation', () => {
 				disputeWindow: 3600, // Minimum allowed dispute window (1 hour)
 			});
 			const escrowId = await client.standard.linkEscrow(txId);
+			// AUDIT FIX: Must go through IN_PROGRESS before DELIVERED
+			await client.standard.transitionState(txId, 'IN_PROGRESS');
 			await client.standard.transitionState(txId, 'DELIVERED');
 
 			// Wait for dispute window to expire

@@ -8,6 +8,7 @@
 import type { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 import { ACTPClient } from '@agirails/sdk';
+import { ethers } from 'ethers';
 import {
 	parseDeadline,
 	parseDisputeWindow,
@@ -140,6 +141,9 @@ export async function handleLinkEscrow(
  * Transition State - Manually change transaction state
  *
  * Valid transitions are enforced by the protocol.
+ *
+ * MAINNET: For DELIVERED transition, proof is required to set dispute window.
+ * If no proof provided for DELIVERED, auto-encodes from transaction's disputeWindow.
  */
 export async function handleTransitionState(
 	context: IExecuteFunctions,
@@ -149,6 +153,7 @@ export async function handleTransitionState(
 	try {
 		const txId = context.getNodeParameter('transactionId', itemIndex) as string;
 		const newState = context.getNodeParameter('newState', itemIndex) as string;
+		const proofInput = context.getNodeParameter('proof', itemIndex, '') as string;
 		const parsedTxId = parseTransactionId(txId);
 
 		// Validate state is a valid transition target (fixes type safety - no more `as any`)
@@ -158,9 +163,17 @@ export async function handleTransitionState(
 		const txBefore = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 		const stateBefore = txBefore.state;
 
+		// MAINNET FIX: Auto-encode dispute window proof for DELIVERED if not provided
+		let proof: string | undefined = proofInput || undefined;
+		if (validatedState === 'DELIVERED' && !proof) {
+			const disputeWindowSeconds = txBefore.disputeWindow || 172800; // Default 2 days
+			const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+			proof = abiCoder.encode(['uint256'], [disputeWindowSeconds]);
+		}
+
 		// Transition state with timeout and retry protection
 		await executeSDKOperation(
-			() => client.standard.transitionState(parsedTxId, validatedState),
+			() => client.standard.transitionState(parsedTxId, validatedState, proof),
 			'transitionState',
 			context,
 			itemIndex,
@@ -175,6 +188,7 @@ export async function handleTransitionState(
 					transactionId: parsedTxId,
 					previousState: stateBefore,
 					newState: txAfter.state,
+					proof: proof || undefined,
 					message: `State transitioned from ${stateBefore} to ${txAfter.state}.`,
 				} as IDataObject),
 			},

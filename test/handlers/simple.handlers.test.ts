@@ -188,7 +188,12 @@ describe('handleMarkDelivered', () => {
 
 		const result = await handleMarkDelivered(context, client as any, 0);
 
-		expect(client.standard.transitionState).toHaveBeenCalledWith(txId, 'DELIVERED');
+		// Now includes dispute window proof (auto-encoded when transitioning to DELIVERED)
+		expect(client.standard.transitionState).toHaveBeenCalledWith(
+			txId,
+			'DELIVERED',
+			expect.stringMatching(/^0x/), // Proof is ABI-encoded dispute window
+		);
 		expect(result[0].json.state).toBe('DELIVERED');
 	});
 });
@@ -211,7 +216,8 @@ describe('handleReleasePayment', () => {
 
 		const result = await handleReleasePayment(context, client as any, 0);
 
-		expect(client.standard.releaseEscrow).toHaveBeenCalledWith(txId);
+		// Now passes undefined as second arg when no attestation UID provided
+		expect(client.standard.releaseEscrow).toHaveBeenCalledWith(txId, undefined);
 		expect(result[0].json.state).toBe('SETTLED');
 	});
 

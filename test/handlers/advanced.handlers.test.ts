@@ -160,7 +160,12 @@ describe('handleTransitionState', () => {
 
 		const result = await handleTransitionState(context, client as any, 0);
 
-		expect(client.standard.transitionState).toHaveBeenCalledWith(txId, 'DELIVERED');
+		// Now includes dispute window proof (auto-encoded when transitioning to DELIVERED)
+		expect(client.standard.transitionState).toHaveBeenCalledWith(
+			txId,
+			'DELIVERED',
+			expect.stringMatching(/^0x/), // Proof is ABI-encoded dispute window
+		);
 		expect(result[0].json.previousState).toBe('COMMITTED');
 		expect(result[0].json.newState).toBe('DELIVERED');
 		expect(result[0].json.message).toContain('COMMITTED');

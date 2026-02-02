@@ -251,7 +251,8 @@ describe('Integration: Smoke Tests (Mock Mode)', () => {
 		const status = await client.basic.checkStatus(payResult.txId);
 		expect(status.state).toBe('COMMITTED');
 
-		// Deliver
+		// Deliver (AUDIT FIX: Must go through IN_PROGRESS first)
+		await client.standard.transitionState(payResult.txId, 'IN_PROGRESS');
 		await client.standard.transitionState(payResult.txId, 'DELIVERED');
 
 		const finalStatus = await client.basic.checkStatus(payResult.txId);

@@ -187,12 +187,12 @@ export const transitionStateFields: INodeProperties[] = [
 			{
 				name: 'IN_PROGRESS',
 				value: 'IN_PROGRESS',
-				description: 'Provider is working on service',
+				description: 'Provider is working on service (required before DELIVERED)',
 			},
 			{
 				name: 'DELIVERED',
 				value: 'DELIVERED',
-				description: 'Work completed and delivered',
+				description: 'Work completed (must be in IN_PROGRESS state first)',
 			},
 			{
 				name: 'DISPUTED',
@@ -207,6 +207,22 @@ export const transitionStateFields: INodeProperties[] = [
 		],
 		default: 'DELIVERED',
 		description: 'Target state for the transition',
+		displayOptions: {
+			show: {
+				mode: ['advanced'],
+				operation: ['transitionState'],
+			},
+		},
+	},
+	{
+		displayName: 'Proof (Hex)',
+		name: 'proof',
+		type: 'string',
+		required: false,
+		default: '',
+		placeholder: '0x...',
+		description:
+			'Optional ABI-encoded proof for the transition. For DELIVERED: abi.encode([uint256], [disputeWindowSeconds]). If empty for DELIVERED, uses transaction disputeWindow.',
 		displayOptions: {
 			show: {
 				mode: ['advanced'],

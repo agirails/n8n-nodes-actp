@@ -180,6 +180,22 @@ export const releasePaymentFields: INodeProperties[] = [
 			},
 		},
 	},
+	{
+		displayName: 'Attestation UID',
+		name: 'attestationUID',
+		type: 'string',
+		required: false,
+		default: '',
+		placeholder: '0x...',
+		description:
+			'EAS attestation UID for delivery proof. Required on mainnet for escrow release.',
+		displayOptions: {
+			show: {
+				mode: ['simple'],
+				operation: ['releasePayment'],
+			},
+		},
+	},
 ];
 
 /**

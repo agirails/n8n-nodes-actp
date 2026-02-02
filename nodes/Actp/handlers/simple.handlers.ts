@@ -8,6 +8,7 @@
 import type { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 import { ACTPClient } from '@agirails/sdk';
+import { ethers } from 'ethers';
 import {
 	parseDeadline,
 	parseDisputeWindow,
@@ -124,7 +125,7 @@ export async function handleCheckStatus(
 /**
  * Start Work - Provider accepts and starts working
  *
- * Transitions: COMMITTED → IN_PROGRESS (optional state)
+ * Transitions: COMMITTED → IN_PROGRESS (required before DELIVERED)
  */
 export async function handleStartWork(
 	context: IExecuteFunctions,
@@ -167,7 +168,14 @@ export async function handleStartWork(
 /**
  * Mark Delivered - Provider marks work as complete
  *
- * Transitions: COMMITTED/IN_PROGRESS → DELIVERED
+ * Transitions: IN_PROGRESS → DELIVERED
+ *
+ * AUDIT FIX: If transaction is in COMMITTED state, automatically transitions
+ * through IN_PROGRESS first (COMMITTED → IN_PROGRESS → DELIVERED).
+ * Direct COMMITTED → DELIVERED is not allowed by the protocol.
+ *
+ * MAINNET: Encodes disputeWindow as proof for on-chain verification.
+ * Without proof, kernel uses default 2-day dispute window.
  */
 export async function handleMarkDelivered(
 	context: IExecuteFunctions,
@@ -178,23 +186,43 @@ export async function handleMarkDelivered(
 		const txId = context.getNodeParameter('transactionId', itemIndex) as string;
 		const parsedTxId = parseTransactionId(txId);
 
-		// Transition to DELIVERED
+		// Get current transaction state
+		const tx = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
+
+		// AUDIT FIX: If in COMMITTED state, must go through IN_PROGRESS first
+		if (tx.state === 'COMMITTED' || String(tx.state) === '2') {
+			await executeSDKOperation(
+				() => client.standard.transitionState(parsedTxId, 'IN_PROGRESS'),
+				'transitionState',
+				context,
+				itemIndex,
+			);
+		}
+
+		// MAINNET FIX: Encode dispute window as proof for DELIVERED transition
+		// Use transaction's disputeWindow, fallback to 2 days (172800s) if not set
+		const disputeWindowSeconds = tx.disputeWindow || 172800;
+		const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+		const disputeWindowProof = abiCoder.encode(['uint256'], [disputeWindowSeconds]);
+
+		// Transition to DELIVERED with dispute window proof
 		await executeSDKOperation(
-			() => client.standard.transitionState(parsedTxId, 'DELIVERED'),
+			() => client.standard.transitionState(parsedTxId, 'DELIVERED', disputeWindowProof),
 			'transitionState',
 			context,
 			itemIndex,
 		);
 
 		// Get updated transaction
-		const tx = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
+		const updatedTx = await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 
 		return [
 			{
 				json: formatSuccess('markDelivered', {
 					transactionId: parsedTxId,
-					state: tx.state,
-					message: 'Work delivered. Waiting for requester to release payment or dispute window to expire.',
+					state: updatedTx.state,
+					disputeWindow: disputeWindowSeconds,
+					message: `Work delivered. Dispute window: ${Math.floor(disputeWindowSeconds / 3600)}h. Waiting for requester to release payment or window to expire.`,
 				} as IDataObject),
 			},
 		];
@@ -211,6 +239,8 @@ export async function handleMarkDelivered(
  * Release Payment - Requester releases funds to provider
  *
  * Transitions: DELIVERED → SETTLED
+ *
+ * MAINNET: Requires attestation UID for EAS delivery proof verification.
  */
 export async function handleReleasePayment(
 	context: IExecuteFunctions,
@@ -219,14 +249,19 @@ export async function handleReleasePayment(
 ): Promise<INodeExecutionData[]> {
 	try {
 		const txId = context.getNodeParameter('transactionId', itemIndex) as string;
+		const attestationUID = context.getNodeParameter('attestationUID', itemIndex, '') as string;
 		const parsedTxId = parseTransactionId(txId);
 
 		// Get transaction to verify it exists
 		await getTransactionOrThrow(client, parsedTxId, context, itemIndex);
 
-		// Release escrow (uses txId as escrowId in mock mode)
+		// Release escrow with optional attestation UID (required on mainnet)
+		const releaseParams = attestationUID
+			? { txId: parsedTxId, attestationUID }
+			: undefined;
+
 		await executeSDKOperation(
-			() => client.standard.releaseEscrow(parsedTxId),
+			() => client.standard.releaseEscrow(parsedTxId, releaseParams),
 			'releaseEscrow',
 			context,
 			itemIndex,
@@ -237,6 +272,7 @@ export async function handleReleasePayment(
 				json: formatSuccess('releasePayment', {
 					transactionId: parsedTxId,
 					state: 'SETTLED',
+					attestationUID: attestationUID || undefined,
 					message: 'Payment released to provider. Transaction complete!',
 				} as IDataObject),
 			},
