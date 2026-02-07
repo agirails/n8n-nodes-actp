@@ -43,6 +43,15 @@ import {
 	handleGetTransaction,
 	handleGetEscrowBalance,
 	handleCancelAdvanced,
+	// x402
+	handlePaidHttpRequest,
+	handleX402Pay,
+	// ERC-8004
+	handleLookupAgent,
+	handleResolveAgent,
+	handleVerifyAgent,
+	handleReportReputation,
+	handleGetReputation,
 } from './handlers';
 
 // Import utilities
@@ -78,6 +87,12 @@ async function executeSimpleOperation(
 
 		case 'cancel':
 			return handleCancelSimple(context, client, itemIndex);
+
+		case 'paidHttpRequest':
+			return handlePaidHttpRequest(context, client, itemIndex);
+
+		case 'lookupAgent':
+			return handleLookupAgent(context, client, itemIndex);
 
 		default:
 			throw new NodeOperationError(
@@ -118,6 +133,21 @@ async function executeAdvancedOperation(
 
 		case 'cancelAdvanced':
 			return handleCancelAdvanced(context, client, itemIndex);
+
+		case 'x402Pay':
+			return handleX402Pay(context, client, itemIndex);
+
+		case 'resolveAgent':
+			return handleResolveAgent(context, client, itemIndex);
+
+		case 'verifyAgent':
+			return handleVerifyAgent(context, client, itemIndex);
+
+		case 'reportReputation':
+			return handleReportReputation(context, client, itemIndex);
+
+		case 'getReputation':
+			return handleGetReputation(context, client, itemIndex);
 
 		default:
 			throw new NodeOperationError(

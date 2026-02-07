@@ -12,3 +12,5 @@ export { advancedFields, advancedOperationField } from './advanced.description';
 export * from './common.fields';
 export * from './simple.description';
 export * from './advanced.description';
+export * from './x402.description';
+export * from './erc8004.description';

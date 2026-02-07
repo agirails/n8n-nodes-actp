@@ -12,6 +12,13 @@ import {
 	disputeWindowField,
 	escrowIdField,
 } from './common.fields';
+import { x402PayFields } from './x402.description';
+import {
+	resolveAgentFields,
+	verifyAgentFields,
+	reportReputationFields,
+	getReputationFields,
+} from './erc8004.description';
 
 /**
  * Advanced mode operation selector
@@ -72,6 +79,39 @@ export const advancedOperationField: INodeProperties = {
 			value: 'cancelAdvanced',
 			description: 'Cancel transaction (before DELIVERED)',
 			action: 'Cancel transaction',
+		},
+		// === x402 Operations ===
+		{
+			name: 'x402 Pay',
+			value: 'x402Pay',
+			description: 'Make an atomic HTTP payment via x402 protocol (testnet/mainnet)',
+			action: 'Make x402 payment',
+		},
+		// === ERC-8004 Identity ===
+		{
+			name: 'Resolve Agent',
+			value: 'resolveAgent',
+			description: 'Resolve full agent identity from ERC-8004 registry (testnet/mainnet)',
+			action: 'Resolve agent identity',
+		},
+		{
+			name: 'Verify Agent',
+			value: 'verifyAgent',
+			description: 'Check if an agent exists on-chain (testnet/mainnet)',
+			action: 'Verify agent exists',
+		},
+		// === ERC-8004 Reputation ===
+		{
+			name: 'Report Reputation',
+			value: 'reportReputation',
+			description: 'Report settlement or dispute outcome to reputation registry (testnet/mainnet)',
+			action: 'Report reputation',
+		},
+		{
+			name: 'Get Reputation',
+			value: 'getReputation',
+			description: 'Query agent reputation score (testnet/mainnet)',
+			action: 'Get agent reputation',
 		},
 	],
 	default: 'createTransaction',
@@ -320,4 +360,9 @@ export const advancedFields: INodeProperties[] = [
 	...getEscrowBalanceFields,
 	...getTransactionFields,
 	...cancelAdvancedFields,
+	...x402PayFields,
+	...resolveAgentFields,
+	...verifyAgentFields,
+	...reportReputationFields,
+	...getReputationFields,
 ];

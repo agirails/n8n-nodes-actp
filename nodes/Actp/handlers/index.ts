@@ -25,3 +25,18 @@ export {
 	handleGetEscrowBalance,
 	handleCancelAdvanced,
 } from './advanced.handlers';
+
+// x402 handlers
+export {
+	handlePaidHttpRequest,
+	handleX402Pay,
+} from './x402.handlers';
+
+// ERC-8004 handlers
+export {
+	handleLookupAgent,
+	handleResolveAgent,
+	handleVerifyAgent,
+	handleReportReputation,
+	handleGetReputation,
+} from './erc8004.handlers';

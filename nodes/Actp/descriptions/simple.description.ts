@@ -11,6 +11,8 @@ import {
 	deadlineField,
 	disputeWindowField,
 } from './common.fields';
+import { paidHttpRequestFields } from './x402.description';
+import { lookupAgentFields } from './erc8004.description';
 
 /**
  * Simple mode operation selector
@@ -32,6 +34,12 @@ export const simpleOperationField: INodeProperties = {
 			value: 'sendPayment',
 			description: 'Create a payment and fund escrow in one step',
 			action: 'Send a payment',
+		},
+		{
+			name: 'Paid HTTP Request',
+			value: 'paidHttpRequest',
+			description: 'Pay for an HTTP API call via x402 protocol (testnet/mainnet)',
+			action: 'Make a paid HTTP request',
 		},
 		{
 			name: 'Check Status',
@@ -69,6 +77,13 @@ export const simpleOperationField: INodeProperties = {
 			value: 'markDelivered',
 			description: 'Provider: Mark work as complete/delivered',
 			action: 'Mark as delivered',
+		},
+		// === Identity Operations ===
+		{
+			name: 'Lookup Agent',
+			value: 'lookupAgent',
+			description: 'Look up an agent\'s identity and wallet via ERC-8004 (testnet/mainnet)',
+			action: 'Look up agent identity',
 		},
 	],
 	default: 'sendPayment',
@@ -249,10 +264,12 @@ export const cancelSimpleFields: INodeProperties[] = [
 export const simpleFields: INodeProperties[] = [
 	simpleOperationField,
 	...sendPaymentFields,
+	...paidHttpRequestFields,
 	...checkStatusFields,
 	...startWorkFields,
 	...markDeliveredFields,
 	...releasePaymentFields,
 	...raiseDisputeFields,
 	...cancelSimpleFields,
+	...lookupAgentFields,
 ];
