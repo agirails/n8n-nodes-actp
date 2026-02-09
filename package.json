@@ -67,7 +67,7 @@
     "n8n-workflow": "*"
   },
   "dependencies": {
-    "@agirails/sdk": "^2.2.3",
+    "@agirails/sdk": "^2.3.0",
     "ethers": "^6.13.4"
   }
 }
