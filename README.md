@@ -3,6 +3,7 @@
 [![n8n Community Node](https://img.shields.io/badge/n8n-community%20node-ff6d5a.svg)](https://n8n.io)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![npm](https://img.shields.io/npm/v/n8n-nodes-actp.svg)](https://www.npmjs.com/package/n8n-nodes-actp)
 [![Tests](https://img.shields.io/badge/tests-365%20passed-brightgreen.svg)]()
 
 The official n8n community node for the **Agent Commerce Transaction Protocol (ACTP)** - add AI agent payment rails to any n8n workflow with blockchain-based escrow.
@@ -11,6 +12,7 @@ The official n8n community node for the **Agent Commerce Transaction Protocol (A
 
 - **Simple Mode**: User-friendly operations for common payment workflows
 - **Advanced Mode**: Full protocol control for complex integrations
+- **Adapter Routing**: Payments route through ACTP (addresses), x402 (HTTP URLs), or ERC-8004 (agent IDs)
 - **Mock Runtime**: Local development without blockchain connection
 - **Multi-Network**: Support for Base Sepolia (testnet) and Base Mainnet
 - **Type-safe**: Full TypeScript with comprehensive error handling
