@@ -110,6 +110,9 @@ export async function handleCheckStatus(
 					canAccept: status.canAccept,
 					canComplete: status.canComplete,
 					canDispute: status.canDispute,
+					amount: status.amount,
+					provider: status.provider,
+					requester: status.requester,
 				})),
 			},
 		];

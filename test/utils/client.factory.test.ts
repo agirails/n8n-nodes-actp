@@ -17,6 +17,7 @@ jest.mock('@agirails/sdk', () => ({
 			// Store config for inspection
 			const mockClient = {
 				_config: config, // Internal for test inspection
+				_registeredAdapters: [] as any[], // Track registered adapters
 				basic: { pay: jest.fn(), checkStatus: jest.fn() },
 				standard: {
 					createTransaction: jest.fn(),
@@ -26,10 +27,18 @@ jest.mock('@agirails/sdk', () => ({
 					getTransaction: jest.fn(),
 					getEscrowBalance: jest.fn(),
 				},
+				registerAdapter: jest.fn().mockImplementation(function(this: any, adapter: any) {
+					this._registeredAdapters.push(adapter);
+				}),
 			};
 			return mockClient;
 		}),
 	},
+	X402Adapter: jest.fn().mockImplementation((address, config) => ({
+		_type: 'X402Adapter',
+		_address: address,
+		_config: config,
+	})),
 }));
 
 describe('createClientFromCredentials', () => {
@@ -159,6 +168,26 @@ describe('createClientFromCredentials', () => {
 			expect(ACTPClient.create).toHaveBeenCalledWith(
 				expect.objectContaining({
 					rpcUrl: 'https://custom-rpc.example.com',
+				}),
+			);
+		});
+
+		it('should register X402Adapter for testnet', async () => {
+			const { X402Adapter } = require('@agirails/sdk');
+			const credentials = {
+				environment: 'testnet',
+				privateKey: validPrivateKey,
+			};
+
+			const client = await createClientFromCredentials(credentials) as any;
+
+			expect(client.registerAdapter).toHaveBeenCalledTimes(1);
+			expect(X402Adapter).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.objectContaining({
+					expectedNetwork: 'base-sepolia',
+					transferFn: expect.any(Function),
+					feeCollector: expect.any(String),
 				}),
 			);
 		});

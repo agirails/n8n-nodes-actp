@@ -1,8 +1,29 @@
 import type { IExecuteFunctions, ICredentialDataDecryptedObject } from 'n8n-workflow';
-import { ACTPClient } from '@agirails/sdk';
-import { keccak256, toUtf8Bytes, Wallet as ethersWallet } from 'ethers';
+import { ACTPClient, X402Adapter } from '@agirails/sdk';
+import { keccak256, toUtf8Bytes, Wallet as ethersWallet, Contract, JsonRpcProvider } from 'ethers';
 import { redactSecrets } from './secrets';
 import { PROTOCOL_CONSTANTS } from './constants';
+
+/** USDC contract addresses per network */
+const USDC_ADDRESSES: Record<string, string> = {
+	testnet: '0x444b4e1A65949AB2ac75979D5d0166Eb7A248Ccb', // MockUSDC (Base Sepolia)
+	mainnet: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Circle USDC (Base Mainnet)
+};
+
+/** Default RPC URLs per network */
+const DEFAULT_RPC_URLS: Record<string, string> = {
+	testnet: 'https://base-sepolia-rpc.publicnode.com',
+	mainnet: 'https://mainnet.base.org',
+};
+
+/** Minimal ERC-20 transfer ABI */
+const ERC20_TRANSFER_ABI = ['function transfer(address to, uint256 amount) returns (bool)'];
+
+/** Fee collector addresses per network (receives platform 1% fee on x402 payments) */
+const FEE_COLLECTORS: Record<string, string> = {
+	testnet: '0x1DC48019D708f3d7f1adCAAfA2Ffa198A6897E8d', // Deployer (Base Sepolia)
+	mainnet: '0x61fE58E9EdB380EA65EC74bD364D9D2cba30B7f2', // Gnosis Safe (Base Mainnet)
+};
 
 // Re-export for internal use (avoid naming collision with credentials)
 const ethers = { Wallet: ethersWallet };
@@ -73,6 +94,9 @@ export async function createClientFromCredentials(
 				privateKey,
 				rpcUrl: (credentials.rpcUrl as string) || undefined,
 			});
+
+			// Register X402Adapter for x402 payments
+			registerX402Adapter(client, wallet, 'testnet', (credentials.rpcUrl as string) || undefined);
 			break;
 		}
 
@@ -90,6 +114,9 @@ export async function createClientFromCredentials(
 				privateKey,
 				rpcUrl: (credentials.rpcUrl as string) || undefined,
 			});
+
+			// Register X402Adapter for x402 payments
+			registerX402Adapter(client, wallet, 'mainnet', (credentials.rpcUrl as string) || undefined);
 			break;
 		}
 
@@ -101,6 +128,42 @@ export async function createClientFromCredentials(
 	clientCache.set(cacheKey, client);
 
 	return client;
+}
+
+/**
+ * Register X402Adapter on an ACTPClient for x402 HTTP payments.
+ *
+ * Creates a USDC transfer function from the wallet and registers the adapter.
+ * Skipped for mock mode (no real chain).
+ */
+function registerX402Adapter(
+	client: ACTPClient,
+	wallet: InstanceType<typeof ethersWallet>,
+	network: 'testnet' | 'mainnet',
+	rpcUrl?: string,
+): void {
+	const resolvedRpcUrl = rpcUrl || DEFAULT_RPC_URLS[network];
+	const provider = new JsonRpcProvider(resolvedRpcUrl);
+	const signer = wallet.connect(provider);
+
+	const usdcAddress = USDC_ADDRESSES[network];
+	const usdcContract = new Contract(usdcAddress, ERC20_TRANSFER_ABI, signer);
+
+	const transferFn = async (to: string, amount: string): Promise<string> => {
+		const tx = await usdcContract.transfer(to, amount);
+		const receipt = await tx.wait();
+		return receipt.hash;
+	};
+
+	const expectedNetwork = network === 'testnet' ? 'base-sepolia' : 'base-mainnet';
+
+	const adapter = new X402Adapter(wallet.address, {
+		expectedNetwork,
+		transferFn,
+		feeCollector: FEE_COLLECTORS[network],
+	});
+
+	client.registerAdapter(adapter);
 }
 
 /**

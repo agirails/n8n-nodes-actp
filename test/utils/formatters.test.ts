@@ -216,7 +216,6 @@ describe('formatStatusCheck', () => {
 			canAccept: false,
 			canComplete: true,
 			canDispute: false,
-			canFinalize: false,
 		};
 
 		const result = formatStatusCheck(status);
@@ -233,26 +232,14 @@ describe('formatStatusCheck', () => {
 			canAccept: false,
 			canComplete: false,
 			canDispute: true,
-			canFinalize: true,
 		};
 
 		const result = formatStatusCheck(status);
 
 		expect(result.availableActions).toContain('Raise dispute');
-		expect(result.availableActions).toContain('Release payment');
 	});
 
-	it('should format time remaining', () => {
-		const status = {
-			state: 4,
-			timeRemaining: 3700, // 1h 1m 40s
-		};
 
-		const result = formatStatusCheck(status);
-
-		expect(result.timeRemaining).toBe('1h 1m');
-		expect(result.timeRemainingSeconds).toBe(3700);
-	});
 });
 
 describe('formatDuration', () => {
@@ -621,7 +608,6 @@ describe('formatStatusCheck - Edge Cases', () => {
 			canAccept: false,
 			canComplete: false,
 			canDispute: false,
-			canFinalize: false,
 		};
 
 		const result = formatStatusCheck(status);
@@ -635,12 +621,11 @@ describe('formatStatusCheck - Edge Cases', () => {
 			canAccept: true,
 			canComplete: true,
 			canDispute: true,
-			canFinalize: true,
 		};
 
 		const result = formatStatusCheck(status);
 
-		expect(result.availableActions).toHaveLength(4);
+		expect(result.availableActions).toHaveLength(3);
 	});
 
 	it('should handle undefined action flags', () => {
@@ -654,30 +639,9 @@ describe('formatStatusCheck - Edge Cases', () => {
 		expect(result.canAccept).toBe(false);
 		expect(result.canComplete).toBe(false);
 		expect(result.canDispute).toBe(false);
-		expect(result.canFinalize).toBe(false);
 	});
 
-	it('should handle zero time remaining', () => {
-		const status = {
-			state: TEST_STATES.DELIVERED,
-			timeRemaining: 0,
-		};
 
-		const result = formatStatusCheck(status);
-
-		expect(result.timeRemaining).toBe('Expired');
-	});
-
-	it('should not include timeRemaining if not provided', () => {
-		const status = {
-			state: TEST_STATES.DELIVERED,
-		};
-
-		const result = formatStatusCheck(status);
-
-		expect(result.timeRemaining).toBeUndefined();
-		expect(result.timeRemainingSeconds).toBeUndefined();
-	});
 });
 
 describe('formatSuccess - Edge Cases', () => {

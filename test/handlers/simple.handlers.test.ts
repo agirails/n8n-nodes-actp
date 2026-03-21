@@ -44,6 +44,9 @@ const createMockClient = (overrides: Record<string, any> = {}) => {
 				canAccept: false,
 				canComplete: true,
 				canDispute: false,
+				amount: '$100.00 USDC',
+				provider: '0x' + '2'.repeat(40),
+				requester: '0x' + '1'.repeat(40),
 			}),
 			...overrides.basic,
 		},
@@ -143,6 +146,9 @@ describe('handleCheckStatus', () => {
 		expect(result[0].json.success).toBe(true);
 		expect(result[0].json.status).toBe('COMMITTED');
 		expect(result[0].json.canComplete).toBe(true);
+		expect(result[0].json.amount).toBe('$100.00 USDC');
+		expect(result[0].json.provider).toBe('0x' + '2'.repeat(40));
+		expect(result[0].json.requester).toBe('0x' + '1'.repeat(40));
 	});
 
 	it('should throw on invalid transaction ID', async () => {

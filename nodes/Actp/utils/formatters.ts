@@ -130,8 +130,9 @@ export function formatStatusCheck(status: {
 	canAccept?: boolean;
 	canComplete?: boolean;
 	canDispute?: boolean;
-	canFinalize?: boolean;
-	timeRemaining?: number;
+	amount?: string;
+	provider?: string;
+	requester?: string;
 	[key: string]: unknown;
 }): IDataObject {
 	const stateInfo = formatState(status.state);
@@ -140,7 +141,6 @@ export function formatStatusCheck(status: {
 	if (status.canAccept) actions.push('Accept transaction');
 	if (status.canComplete) actions.push('Mark as delivered');
 	if (status.canDispute) actions.push('Raise dispute');
-	if (status.canFinalize) actions.push('Release payment');
 
 	return {
 		status: stateInfo.state,
@@ -149,11 +149,9 @@ export function formatStatusCheck(status: {
 		canAccept: status.canAccept ?? false,
 		canComplete: status.canComplete ?? false,
 		canDispute: status.canDispute ?? false,
-		canFinalize: status.canFinalize ?? false,
-		timeRemaining: status.timeRemaining !== undefined
-			? formatDuration(status.timeRemaining)
-			: undefined,
-		timeRemainingSeconds: status.timeRemaining,
+		amount: status.amount,
+		provider: status.provider,
+		requester: status.requester,
 	} as IDataObject;
 }
 
