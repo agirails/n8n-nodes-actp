@@ -1,0 +1,95 @@
+name: Publish to npm
+
+# Tag-driven publish pipeline with npm provenance attestation (Apex
+# FIND-001 / FIND-007 pattern, mirroring agirails/sdk-js). Fires on
+# annotated git tags matching v*.*.* (including pre-release tags like
+# v2.5.0-beta.1). The published tarball is signed by sigstore via npm's
+# trusted-publishing OIDC flow so the npm registry can prove the build
+# came from this repo + this commit. No NPM_TOKEN secret required.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-*'  # pre-release tags (alpha/beta/rc)
+
+# Least-privilege default. The publish job widens to `id-token: write`
+# for OIDC; nothing else needs to write.
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # required for npm provenance via OIDC
+    steps:
+      # Pin all third-party actions by full-length commit SHA, not `@vN`,
+      # per the Apex audit recommendation (tj-actions/changed-files class
+      # of compromise — CVE-2025-30066).
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 20 with npm cache
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.2
+        with:
+          node-version: 20
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Bump npm to 11.x (required for Trusted Publishing OIDC)
+        # Node 20 ships npm 10.x; tokenless OIDC publish + sigstore
+        # provenance requires npm 11.5.1+. See npm RFC #850.
+        run: npm install -g npm@11
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME (=> $TAG_VERSION) does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Tag and package.json agree on version $PKG_VERSION"
+
+      - name: Install dependencies (lockfile-pinned)
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        # NOTE: 2 known-flaky tests are .skip'd (X402Adapter API drift,
+        # DELIVERED→DISPUTED MockRuntime state-leak between describe
+        # blocks in combined run). Both pass in isolation, both pre-date
+        # the SDK 4.0.0 bump. Tracked as separate test-debt cleanup.
+        # Lint step intentionally omitted — n8n-nodes-actp has no eslint
+        # config yet (TODO).
+        run: npm test
+
+      - name: Determine dist-tag from version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if echo "$VERSION" | grep -q '-beta'; then
+            echo "DIST_TAG=next" >> "$GITHUB_ENV"
+          elif echo "$VERSION" | grep -q '-alpha'; then
+            echo "DIST_TAG=alpha" >> "$GITHUB_ENV"
+          elif echo "$VERSION" | grep -q '-rc'; then
+            echo "DIST_TAG=rc" >> "$GITHUB_ENV"
+          elif echo "$VERSION" | grep -q '-'; then
+            echo "DIST_TAG=next" >> "$GITHUB_ENV"
+          else
+            echo "DIST_TAG=latest" >> "$GITHUB_ENV"
+          fi
+
+      - name: Publish to npm with provenance (Trusted Publisher OIDC)
+        # With npm 11+ and a Trusted Publisher configured on npmjs.com
+        # pointing at this repo + workflow, `npm publish --provenance`
+        # uses the GitHub-issued id-token to authenticate and signs the
+        # tarball via sigstore. No NPM_TOKEN secret required.
+        # Empty NODE_AUTH_TOKEN blocks the OIDC fallthrough — so this
+        # step deliberately sets no token env.
+        run: npm publish --tag "$DIST_TAG" --access public --provenance
