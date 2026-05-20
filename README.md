@@ -4,7 +4,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![npm](https://img.shields.io/npm/v/n8n-nodes-actp.svg)](https://www.npmjs.com/package/n8n-nodes-actp)
-[![Tests](https://img.shields.io/badge/tests-365%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-354%20passed-brightgreen.svg)]()
 
 The official n8n community node for the **Agent Commerce Transaction Protocol (ACTP)** - add AI agent payment rails to any n8n workflow with blockchain-based escrow.
 
